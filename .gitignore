@@ -1,0 +1,17 @@
+.venv 
+.vscode
+*/.DS_Store
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Pytest
+.pytest_cache/
+.pytest_cache
+
+*.back
+.DS_Store
+*.pdf
+*.log
+/**/*.zip
+data

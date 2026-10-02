@@ -9,6 +9,7 @@
 ### Changed 
 
 ### Added
+- Implements RK4 solver in `solver` module using Python inheritance. Write associated tests. 
 - Move `KinematicProfile` into `src/core/physics`. 
 - Implements basic simulation elements with Python `@dataclass` (`Particle`, `Fluid`, etc...) and add test file for them. 
 - `dev/RK4_solver.ipynb` : Runge-Kunta 4 order solver for movements equations depending on rotation angles and fluids properties. 

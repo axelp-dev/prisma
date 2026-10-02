@@ -10,26 +10,11 @@ import numpy as np
 from pathlib import Path
 import logging
 import datetime
-from dataclasses import dataclass
-
 
 from src.utils import get_metadata
 import src.core.conventions as conv 
 from src.core.kinematics import CanonicalTwoAxis
-
-@dataclass
-class KinematicProfile: 
-    """
-    Dataclass container for Kinematics values
-    """
-    timestamp: np.ndarray
-    theta1 : np.ndarray
-    theta2 : np.ndarray
-    g: np.ndarray
-    omega1: np.ndarray
-    omega2: np.ndarray
-    Omega : np.ndarray
-    Omega_dot : np.ndarray
+from src.core.physics import KinematicProfile
 
 
 class Trajectory: 
@@ -132,7 +117,6 @@ class Trajectory:
             Omega_dot=Omega_dot, 
             g=g
         )
-
 
     def get_gravity_positions(self): 
         """

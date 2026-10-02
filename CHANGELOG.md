@@ -9,6 +9,7 @@
 ### Changed 
 
 ### Added
+- Update `ARCHITECTURE.md` and `MATHEMATICS.md` with implemented features. 
 - Implements RK4 solver in `solver` module using Python inheritance. Write associated tests. 
 - Move `KinematicProfile` into `src/core/physics`. 
 - Implements basic simulation elements with Python `@dataclass` (`Particle`, `Fluid`, etc...) and add test file for them. 

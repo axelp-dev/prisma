@@ -6,7 +6,18 @@
 
 ## Unreleased 
 
+
 ### Changed 
+
+### Added
+
+### Removed 
+
+### Fixed
+
+---
+
+## [v0.1.0] - 2026-10-02
 
 ### Added
 - Update `ARCHITECTURE.md` and `MATHEMATICS.md` with implemented features. 
@@ -17,7 +28,3 @@
 - `dev/trajectory.ipynb` : Basic scripts for trajectory generation using Numpy arrays `[timestamp, theta1, theta2]`. Display trajectories plots. 
 - `src/core` : import `rpm-stats` core kinematics and backend for gravoty orientation calculus. 
 - `test` : import `core` associated tests to prevent from code regression. 
-
-### Removed 
-
-### Fixed

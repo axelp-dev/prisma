@@ -2,6 +2,12 @@
 
 > Describe all the changes and added/deleted/modified features in the project. 
 
+## TODO : 
+
+- [ ] Write Mathematics backend on elasticity in `MATHEMATICS.md`. 
+- [ ] Implements `trajectory` command. 
+- [ ] Implements logs module with PDF reports on trajectory and simulation. 
+
 ---
 
 ## Unreleased 

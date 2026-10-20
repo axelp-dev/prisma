@@ -9,8 +9,7 @@ dependencies = [
     "numpy",
     "scipy",
     "matplotlib",
-    "pandas",
-    "argparse"
+    "pandas"
 ]
 
 [project.scripts]

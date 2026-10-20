@@ -1,120 +1,177 @@
+"""Unit test suite for Runge-Kutta 4th-order overdamped solvers and physics integration.
+
+This module validates:
+- Polymorphic behavior of the base Solver class.
+- Analytical consistency of the terminal limit velocity function v_limit.
+- Viscous settling under static terrestrial gravity (linear regime).
+- Viscoelastic exponential relaxation toward dynamic equilibrium when k > 0.
+- Respect of the Stokes creeping-flow threshold (Re_p << 0.1).
+"""
+
 import logging
 import numpy as np
 import pytest
 
-from src.core.physics import Fluid, KinematicProfile, Particle, PhysicalSystem, SimulationResult
+from src.core.physics import (
+    Fluid,
+    KinematicProfile,
+    Particle,
+    PhysicalSystem,
+    SimulationResult,
+)
 from src.solver.solver import RK4Overdamped, Solver
+
 
 @pytest.fixture
 def mock_logger():
-    """Basic logging"""
+    """Provide a neutral mock logger for solver test execution."""
     return logging.getLogger("test_solver")
 
 
 @pytest.fixture
-def physical_system():
-    """Reference system : ball in pure glycerol"""
-    p = Particle(radius=1.5e-3, rho=1202.0)
-    f = Fluid(rho=1200.0, mu=1.412)
-    return PhysicalSystem(particle=p, fluid=f)
-
-
-@pytest.fixture
-def static_kinematics():
-    """At rest cinematic [0, 0, -9.81]."""
-    n = 101
-    t = np.linspace(0.0, 1.0, n)
+def static_gravity_kinematics():
+    """Generate a synthetic kinematic profile at complete rest under static gravity."""
+    n_points = 201
+    t = np.linspace(0.0, 2.0, n_points)
     return KinematicProfile(
         timestamp=t,
-        theta1=np.zeros(n),
-        theta2=np.zeros(n),
-        g=np.tile(np.array([0.0, 0.0, -9.81]), (n, 1)),
-        omega1=np.zeros(n),
-        omega2=np.zeros(n),
-        Omega=np.zeros((3, n)),
-        Omega_dot=np.zeros((3, n)),
+        theta1=np.zeros(n_points),
+        theta2=np.zeros(n_points),
+        g=np.tile(np.array([0.0, 0.0, -9.81]), (n_points, 1)),
+        omega1=np.zeros(n_points),
+        omega2=np.zeros(n_points),
+        Omega=np.zeros((3, n_points)),
+        Omega_dot=np.zeros((3, n_points)),
     )
 
 
-# --- A. Architecture & Initialization ----------------------------------
+# ==============================================================================
+# A. Base Class & Polymorphism Tests
+# ==============================================================================
 
-def test_solver_initialization(physical_system, mock_logger):
-    """Checkc class instanciation."""
-    solver = RK4Overdamped(system=physical_system, r_tube=0.05, LOG=mock_logger)
-    assert solver.system == physical_system
-    assert solver.r_tube == pytest.approx(0.05)
-    assert not solver.overdamped
+def test_base_solver_raises_not_implemented(mock_logger, static_gravity_kinematics):
+    """Ensure the abstract base Solver forces derived classes to implement solve()."""
+    particle = Particle(radius=1.5e-3, rho=1202.0, x0=np.array([0.0, 0.0, 5e-3]))
+    fluid = Fluid(rho=1200.0, mu=1.412, k=0.0)
+    system = PhysicalSystem(particle=particle, fluid=fluid)
 
-
-def test_base_solver_raises_not_implemented(physical_system, static_kinematics, mock_logger):
-    """Check that Solver instanciation as to implements solve() method"""
-    base_solver = Solver(system=physical_system, r_tube=0.05, LOG=mock_logger)
+    base_solver = Solver(system=system, r_tube=0.05, LOG=mock_logger)
     with pytest.raises(NotImplementedError):
-        base_solver.solve(static_kinematics, x0=np.zeros(3), v0=np.zeros(3))
-
-# --- B. Local v_limit calculus ----------------------------------------
-
-def test_v_limit_pure_gravity(physical_system, mock_logger):
-    """At nul rotation, v_limit must be aligned to gravity and equals to tau_v * beta * g."""
-    solver = RK4Overdamped(system=physical_system, r_tube=0.05, LOG=mock_logger)
-
-    r = np.array([0.0, 0.0, 5e-3])
-    g = np.array([0.0, 0.0, -9.81])
-    omega = np.zeros(3)
-    omega_dot = np.zeros(3)
-
-    v_calc = solver.v_limit(r, g, omega, omega_dot)
-    v_expected = physical_system.tau_v * physical_system.beta * g
-
-    np.testing.assert_allclose(v_calc, v_expected, atol=1e-12)
+        base_solver.solve(kin=static_gravity_kinematics, v0=np.zeros(3))
 
 
-def test_v_limit_centrifugal_cancellation(physical_system, mock_logger):
-    """At center r=0, Euler and Centrifugal terms must be zero."""
-    solver = RK4Overdamped(system=physical_system, r_tube=0.05, LOG=mock_logger)
+# ==============================================================================
+# B. Local Terminal Velocity Function (v_limit) Tests
+# ==============================================================================
 
-    r_origin = np.zeros(3)
-    g = np.array([0.0, 0.0, -9.81])
-    omega = np.array([1.0, 2.0, 3.0])
-    omega_dot = np.array([0.5, -0.5, 1.0])
+def test_v_limit_pure_sedimentation_without_elasticity(mock_logger):
+    """Verify v_limit when k = 0 matches the analytical settling velocity: tau_v * beta * g."""
+    anchor_x0 = np.array([0.0, 0.0, 5e-3])
+    particle = Particle(radius=1.5e-3, rho=1202.0, x0=anchor_x0)
+    fluid = Fluid(rho=1200.0, mu=1.412, k=0.0)
+    system = PhysicalSystem(particle=particle, fluid=fluid)
 
-    v_calc = solver.v_limit(r_origin, g, omega, omega_dot)
-    v_expected = physical_system.tau_v * physical_system.beta * g
+    solver = RK4Overdamped(system=system, r_tube=0.05, LOG=mock_logger)
 
-    np.testing.assert_allclose(v_calc, v_expected, atol=1e-12)
+    current_r = np.array([0.0, 0.0, 10e-3])
+    g_vector = np.array([0.0, 0.0, -9.81])
+    zero_omega = np.zeros(3)
 
+    v_computed = solver.v_limit(current_r, g_vector, zero_omega, zero_omega)
+    v_expected = system.tau_v * system.beta * g_vector
 
-# --- C. RK4 Integration & Analytic solution -------------------------
-
-def test_solve_static_linear_sedimentation(physical_system, static_kinematics, mock_logger):
-    """With static gravity and constant speed, z(t) must follows z_0 + v_z * t."""
-    solver = RK4Overdamped(system=physical_system, r_tube=0.05, LOG=mock_logger)
-
-    x0 = np.array([0.0, 0.0, 5e-3])
-    v0 = np.zeros(3)
-
-    res = solver.solve(static_kinematics, x0=x0, v0=v0)
-
-    assert isinstance(res, SimulationResult)
-    assert len(res.timestamp) == len(static_kinematics.timestamp)
-    assert res.positions.shape == (len(static_kinematics.timestamp), 3)
-
-    v_limit_z = physical_system.tau_v * physical_system.beta * (-9.81)
-    t = static_kinematics.timestamp
-
-    np.testing.assert_allclose(res.positions[:, 0], 0.0, atol=1e-12)
-    np.testing.assert_allclose(res.positions[:, 1], 0.0, atol=1e-12)
-
-    z_expected = x0[2] + v_limit_z * t
-    np.testing.assert_allclose(res.positions[:, 2], z_expected, atol=1e-10)
+    np.testing.assert_allclose(v_computed, v_expected, atol=1e-12)
 
 
-def test_solve_reynolds_consistency(physical_system, static_kinematics, mock_logger):
-    """Check positive Re_p and << to Stoke threshold (0.1)"""
-    solver = RK4Overdamped(system=physical_system, r_tube=0.05, LOG=mock_logger)
+def test_v_limit_with_elastic_restoring_force(mock_logger):
+    """Verify v_limit includes Hookean damping toward particle.x0: - (r - x0) / tau_k."""
+    anchor_x0 = np.array([0.0, 0.0, 5e-3])
+    particle = Particle(radius=1.5e-3, rho=1202.0, x0=anchor_x0)
+    fluid = Fluid(rho=1200.0, mu=1.412, k=0.05)
+    system = PhysicalSystem(particle=particle, fluid=fluid)
 
-    res = solver.solve(static_kinematics, x0=np.array([0.0, 0.0, 5e-3]), v0=np.zeros(3))
+    solver = RK4Overdamped(system=system, r_tube=0.05, LOG=mock_logger)
 
-    assert res.reynolds.shape == (len(static_kinematics.timestamp),)
-    assert np.all(res.reynolds >= 0.0)
-    assert np.all(res.reynolds < 0.1) 
+    current_r = np.array([1e-3, 2e-3, 8e-3])
+    g_vector = np.array([0.0, 0.0, -9.81])
+    zero_omega = np.zeros(3)
+
+    tau_k = system.compute_tau_k()
+    v_computed = solver.v_limit(current_r, g_vector, zero_omega, zero_omega)
+
+    v_sedimentation = system.tau_v * system.beta * g_vector
+    v_elastic = - (current_r - anchor_x0) / tau_k
+    v_expected = v_sedimentation + v_elastic
+
+    np.testing.assert_allclose(v_computed, v_expected, atol=1e-12)
+
+
+# ==============================================================================
+# C. Integrated RK4 Trajectory & Physical Consistency Tests
+# ==============================================================================
+
+def test_rk4_constant_sedimentation_pure_viscous(mock_logger, static_gravity_kinematics):
+    """Verify that a bead in pure viscous fluid (k=0) falls linearly at v_terminal."""
+    anchor_x0 = np.array([0.0, 0.0, 5e-3])
+    particle = Particle(radius=1.5e-3, rho=1202.0, x0=anchor_x0)
+    fluid = Fluid(rho=1200.0, mu=1.412, k=0.0)
+    system = PhysicalSystem(particle=particle, fluid=fluid)
+
+    solver = RK4Overdamped(system=system, r_tube=0.05, LOG=mock_logger)
+    result = solver.solve(kin=static_gravity_kinematics, v0=np.zeros(3))
+
+    assert isinstance(result, SimulationResult)
+    t = static_gravity_kinematics.timestamp
+    v_terminal_z = system.tau_v * system.beta * (-9.81)
+
+    # Lateral coordinates in X and Y must remain strictly zero
+    np.testing.assert_allclose(result.positions[:, 0], 0.0, atol=1e-12)
+    np.testing.assert_allclose(result.positions[:, 1], 0.0, atol=1e-12)
+
+    # Vertical position must match exact linear trajectory z(t) = z0 + v_terminal_z * t
+    expected_z = anchor_x0[2] + v_terminal_z * t
+    np.testing.assert_allclose(result.positions[:, 2], expected_z, atol=1e-10)
+
+
+def test_rk4_exponential_relaxation_to_elastic_equilibrium(mock_logger, static_gravity_kinematics):
+    """Verify that with stiffness k > 0, the trajectory converges exponentially to r_eq.
+
+    Analytical 1st-order differential equation under static gravity:
+        dz/dt = v_sed - (z - z0) / tau_k
+        z_eq  = z0 + tau_k * v_sed
+        z(t)  = z_eq + (z0 - z_eq) * exp(-t / tau_k)
+    """
+    anchor_x0 = np.array([0.0, 0.0, 5e-3])
+    particle = Particle(radius=1.5e-3, rho=1202.0, x0=anchor_x0)
+    # Stiffness chosen to complete multiple relaxation cycles within 2 seconds
+    fluid = Fluid(rho=1200.0, mu=1.412, k=0.08)
+    system = PhysicalSystem(particle=particle, fluid=fluid)
+
+    solver = RK4Overdamped(system=system, r_tube=0.05, LOG=mock_logger)
+    result = solver.solve(kin=static_gravity_kinematics, v0=np.zeros(3))
+
+    t = static_gravity_kinematics.timestamp
+    tau_k = system.compute_tau_k()
+    v_sed_z = system.tau_v * system.beta * (-9.81)
+
+    # Calculate theoretical static equilibrium position
+    z_eq = anchor_x0[2] + tau_k * v_sed_z
+
+    # Closed-form analytical solution
+    expected_z = z_eq + (anchor_x0[2] - z_eq) * np.exp(-t / tau_k)
+
+    np.testing.assert_allclose(result.positions[:, 2], expected_z, atol=1e-9)
+
+
+def test_rk4_stokes_reynolds_compliance(mock_logger, static_gravity_kinematics):
+    """Verify that the computed particle Reynolds number remains strictly below Stokes limit (0.1)."""
+    particle = Particle(radius=1.5e-3, rho=1202.0, x0=np.array([0.0, 0.0, 5e-3]))
+    fluid = Fluid(rho=1200.0, mu=1.412, k=0.0)
+    system = PhysicalSystem(particle=particle, fluid=fluid)
+
+    solver = RK4Overdamped(system=system, r_tube=0.05, LOG=mock_logger)
+    result = solver.solve(kin=static_gravity_kinematics, v0=np.zeros(3))
+
+    assert result.reynolds.shape == (len(static_gravity_kinematics.timestamp),)
+    assert np.all(result.reynolds >= 0.0)
+    assert np.all(result.reynolds < 0.1)

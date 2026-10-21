@@ -53,8 +53,8 @@ class Trajectory:
         self.duration_s = self.timestamp[-1]
         self.step_s = self.timestamp[1] - self.timestamp[0]
         metadata = get_metadata(filepath)
-        self.description = metadata["description"]
-        self.generation_date = metadata["generation"]
+        self.description = metadata.get("description", "No description provided")
+        self.generation_date = metadata.get("generation", "Unknown")
         self.LOG.info(f"Successfully loaded trajectory from {filepath} !")
 
     def to_csv(self, filepath: str): 

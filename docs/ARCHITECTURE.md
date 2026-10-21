@@ -88,28 +88,43 @@ The standard execution pipeline transforms raw experimental or synthetic angular
 3. **Dynamical Solving**: The numerical solver evaluates instantaneous limit velocities—including hydrodynamic drag, centrifugal/Euler fictitious forces, and cytoskeletal restoring forces—advancing coordinates via an explicit 4th-order Runge-Kutta scheme.
 4. **Validation & Output**: Trajectory derivatives are computed post-integration to evaluate particle Reynolds numbers ($Re_p$), verifying creeping flow validity ($Re_p \ll 0.1$) before serializing results to disk.
 
+### 4.1 Trajectory Analysis & Synthesis Workflow
 ```text
-CLI Arguments / Physical Presets
-                │
-                ▼
+prisma trajectory generate
+         │
+         ▼
+Synthetic Kinematics Synthesis (sinusoidal / constant speed)
+         │
+         ▼ (Trajectory.to_csv)
+CSV Motor Profile [timestamp, theta1, theta2]
+         │
+         ▼ (prisma trajectory show --plot)
+Diagnostic Summary Metrics & Multi-Panel Kinematic Plots
+```
+### 4.2 Dynnamic Simulation Workflow
+
+```text
+CLI Arguments / Presets (glycerol_bead, statolith)
+         │
+         ▼
 CSV Trajectory File [timestamp, theta1, theta2]
-                │
-                ▼ (Trajectory.from_csv)
-    Trajectory.compute_kinematics()
-                │
-                ▼
-         KinematicProfile
-                │
-                ├───► RK4Overdamped.solve(kin, v0)
-                │         ├── Local evaluation of v_limit(r, g, w, dw)
-                │         │     └── Gravitational + Centrifugal + Euler - (r - x0)/tau_k
-                │         ├── 4th-order Runge-Kutta step
-                │         └── Instantaneous Re_p computation
-                ▼
-         SimulationResult
-                │
-                ▼
-  CSV Export / 3D Trajectory Visualization / Residual Acceleration Metrics
+         │
+         ▼ (Trajectory.from_csv)
+Trajectory.compute_kinematics()
+         │
+         ▼
+   KinematicProfile
+         │
+         ├───► RK4Overdamped.solve(kin, v0)
+         │         ├── Local evaluation of v_limit(r, g, w, dw)
+         │         │     └── Hydrodynamic + Centrifugal + Euler - (r - x0)/tau_k
+         │         ├── 4th-order Runge-Kutta step
+         │         └── Instantaneous Re_p computation
+         ▼
+   SimulationResult
+         │
+         ▼
+CSV Export / Downstream Analysis
 ```
 
 ---

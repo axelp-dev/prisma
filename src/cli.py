@@ -1,17 +1,18 @@
-"""
-    CLI wrapper for prisma simulation using argparse
-"""
+"""CLI wrapper for PRISMA simulation and trajectory management using argparse."""
 
 import argparse
-from pathlib import Path
+import datetime
 import logging
+from pathlib import Path
+import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 
-from src.trajectory.Trajectory import Trajectory
-from src.core.physics import *
+from src.core.physics import Fluid, Particle, PhysicalSystem
 from src.solver.solver import RK4Overdamped
+from src.trajectory.Trajectory import Trajectory
 
-# Init configs 
+# Predefined physical setups
 PRESETS = {
     "glycerol_bead": {
         "radius": 1.5e-3,
@@ -31,32 +32,91 @@ PRESETS = {
     },
 }
 
-# --------------- PARSERS -------------------------
 
-def init_trajectory(parser, traj_parser): 
-    """
-    Trajectory Parser : 
+# ==============================================================================
+# PARSER INITIALIZATION
+# ==============================================================================
 
-    """
-    raise NotImplemented()
 
-def init_run(parser, run_parser): 
-    """
-    Run Parser : 
-    --input (-i):   CSV trajectory source file
-    --output (-o):  CSV particle resulting trajectory output 
-    --duration -(d):Simulation duration 
-    --dt:           Simulation step (in s)
-    --preset (-p):  Using preset config values 
-        # TODO : Implement preset dictionnaries 
-    --x0:           Init position 
-    --k:            Elasticity coefficient 
-    --r:            Particle radius 
-    --rho:          Particle density 
-    --rho-f:        Fluid density 
-    --mu-f:         Fluid viscosity 
-    --k:            Fluid elasticity recall 
-    """
+def init_trajectory(traj_parser: argparse.ArgumentParser):
+    """Configure subparsers for motor trajectory manipulation (show & generate)."""
+    traj_subparsers = traj_parser.add_subparsers(
+        dest="trajectory_command", required=True
+    )
+
+    # --- Subcommand: show ---
+    show_parser = traj_subparsers.add_parser(
+        "show",
+        help="Inspect, summarize, or plot an existing trajectory CSV file.",
+    )
+    show_parser.add_argument(
+        "-i",
+        "--input",
+        type=Path,
+        required=True,
+        help="Path to the input CSV trajectory file.",
+    )
+    show_parser.add_argument(
+        "--plot",
+        action="store_true",
+        help="Display interactive matplotlib plots of angles and apparent gravity.",
+    )
+    show_parser.add_argument(
+        "--report",
+        type=Path,
+        default=None,
+        help="Path to export a compiled summary report (PDF/Markdown format).",
+    )
+
+    # --- Subcommand: generate ---
+    gen_parser = traj_subparsers.add_parser(
+        "generate",
+        help="Generate a synthetic motor profile and export to CSV.",
+    )
+    gen_parser.add_argument(
+        "-o",
+        "--output",
+        type=Path,
+        required=True,
+        help="Path to export the generated trajectory CSV.",
+    )
+    gen_parser.add_argument(
+        "-d",
+        "--duration",
+        type=float,
+        required=True,
+        help="Total duration of the trajectory in seconds.",
+    )
+    gen_parser.add_argument(
+        "--dt",
+        type=float,
+        default=0.01,
+        help="Temporal sampling step in seconds (default: 0.01).",
+    )
+    gen_parser.add_argument(
+        "-m",
+        "--mode",
+        type=str,
+        choices=["constant_speed", "desynchronized_sine"],
+        default="desynchronized_sine",
+        help="Kinematic trajectory generation profile (default: desynchronized_sine).",
+    )
+    gen_parser.add_argument(
+        "--speed",
+        type=float,
+        default=0.5,
+        help="Nominal angular speed parameter in rad/s (default: 0.5).",
+    )
+    gen_parser.add_argument(
+        "--desc",
+        type=str,
+        default="Synthetic RPM trajectory profile",
+        help="Description metadata injected into CSV header.",
+    )
+
+
+def init_run(run_parser: argparse.ArgumentParser):
+    """Configure parser options for particle dynamic numerical simulation."""
     # --- I/O Arguments ---
     io_group = run_parser.add_argument_group("I/O options")
     io_group.add_argument(
@@ -146,20 +206,125 @@ def init_run(parser, run_parser):
         help="Cytoskeletal actin restoring stiffness in N/m (defaults to 0.0).",
     )
     phys_group.add_argument(
-            "-rt",
-            "--tube-radius",
-            dest="tube-radius",
-            type=float,
-            default=None,
-            help="Tube radius in m",
-        )
+        "-rt",
+        "--tube-radius",
+        dest="tube_radius",
+        type=float,
+        default=None,
+        help="Confinement tube or cell radius in meters.",
+    )
 
-# --------------- LAUNCH -------------------------
 
-def launch_run(args, LOG):
-    """
-    Extract run arguments, build physical models, and execute numerical simulation.
-    """
+# ==============================================================================
+# EXECUTION ROUTINES
+# ==============================================================================
+
+
+def launch_trajectory_show(args, LOG: logging.Logger):
+    """Load, analyze, and display trajectory metrics and optional visual plots."""
+    LOG.info(f"Loading trajectory for inspection: {args.input}")
+    traj = Trajectory(LOG=LOG)
+    traj.from_csv(filepath=str(args.input))
+
+    kin = traj.compute_kinematics()
+
+    # Time-averaged residual gravity vector
+    mean_g = np.mean(kin.g, axis=0)
+    mean_g_norm = np.linalg.norm(mean_g)
+    max_omega1 = np.max(np.abs(kin.omega1))
+    max_omega2 = np.max(np.abs(kin.omega2))
+
+    print("\n" + "=" * 50)
+    print("           TRAJECTORY SUMMARY METRICS            ")
+    print("=" * 50)
+    print(f"File Source      : {args.input}")
+    print(f"Description      : {traj.description}")
+    print(f"Duration         : {traj.duration_s:.2f} s")
+    print(f"Sampling Step dt : {traj.step_s:.4f} s ({len(traj.timestamp)} points)")
+    print(f"Max |omega1|     : {max_omega1:.3f} rad/s ({np.degrees(max_omega1):.1f} deg/s)")
+    print(f"Max |omega2|     : {max_omega2:.3f} rad/s ({np.degrees(max_omega2):.1f} deg/s)")
+    print(f"Mean Gravity g_R2: [{mean_g[0]:+.4e}, {mean_g[1]:+.4e}, {mean_g[2]:+.4e}] m/s^2")
+    print(f"Residual g Norm  : {mean_g_norm:.4e} m/s^2 ({mean_g_norm / 9.81:.4e} g0)")
+    print("=" * 50 + "\n")
+
+    if args.plot:
+        LOG.info("Generating trajectory diagnostic plots...")
+        fig, axs = plt.subplots(2, 2, figsize=(11, 7))
+
+        # Motor angles
+        axs[0, 0].plot(traj.timestamp, traj.theta1, label=r"$\theta_1$ (inner)", color="tab:blue")
+        axs[0, 0].plot(traj.timestamp, traj.theta2, label=r"$\theta_2$ (outer)", color="tab:orange")
+        axs[0, 0].set_ylabel("Angle [rad]")
+        axs[0, 0].set_title("Motor Angular Positions")
+        axs[0, 0].legend()
+        axs[0, 0].grid(True, alpha=0.3)
+
+        # Angular velocities
+        axs[0, 1].plot(traj.timestamp, kin.omega1, label=r"$\omega_1$", color="tab:blue")
+        axs[0, 1].plot(traj.timestamp, kin.omega2, label=r"$\omega_2$", color="tab:orange")
+        axs[0, 1].set_ylabel("Angular Velocity [rad/s]")
+        axs[0, 1].set_title("Motor Velocities")
+        axs[0, 1].legend()
+        axs[0, 1].grid(True, alpha=0.3)
+
+        # Apparent gravity components in R2
+        axs[1, 0].plot(traj.timestamp, kin.g[:, 0], label=r"$g_x$")
+        axs[1, 0].plot(traj.timestamp, kin.g[:, 1], label=r"$g_y$")
+        axs[1, 0].plot(traj.timestamp, kin.g[:, 2], label=r"$g_z$")
+        axs[1, 0].set_xlabel("Time [s]")
+        axs[1, 0].set_ylabel(r"$g_{\mathcal{R}_2}\ [\mathrm{m/s^2}]$")
+        axs[1, 0].set_title(r"Apparent Gravity Vector in $\mathcal{R}_2$")
+        axs[1, 0].legend()
+        axs[1, 0].grid(True, alpha=0.3)
+
+        # Residual gravity convergence
+        cum_mean_g = np.cumsum(kin.g, axis=0) / np.arange(1, len(traj.timestamp) + 1)[:, None]
+        cum_norm = np.linalg.norm(cum_mean_g, axis=1)
+        axs[1, 1].plot(traj.timestamp, cum_norm / 9.81, color="tab:red")
+        axs[1, 1].set_xlabel("Time [s]")
+        axs[1, 1].set_ylabel(r"$\|\langle \vec{g} \rangle\| / g_0$")
+        axs[1, 1].set_title("Cumulative Time-Averaged Gravity")
+        axs[1, 1].set_yscale("log")
+        axs[1, 1].grid(True, which="both", alpha=0.3)
+
+        plt.tight_layout()
+        plt.show()
+
+    if args.report:
+        LOG.info(f"Report export requested: {args.report} (placeholder for stats module integration)")
+
+
+def launch_trajectory_generate(args, LOG: logging.Logger):
+    """Generate synthetic angular motion profiles and write them to a structured CSV file."""
+    LOG.info(f"Generating trajectory profile '{args.mode}' (duration={args.duration}s, dt={args.dt}s)")
+    t = np.arange(0.0, args.duration + args.dt, args.dt)
+
+    if args.mode == "constant_speed":
+        theta1 = (args.speed * t) % (2 * np.pi)
+        theta2 = (args.speed * 0.7 * t) % (2 * np.pi)
+    elif args.mode == "desynchronized_sine":
+        # Desynchronized harmonic motion on both gimbals
+        w1, w2 = args.speed, args.speed * np.sqrt(2)
+        theta1 = np.pi * np.sin(w1 * t)
+        theta2 = np.pi * np.sin(w2 * t)
+    else:
+        raise ValueError(f"Unknown trajectory generation mode: {args.mode}")
+
+    traj = Trajectory(LOG=LOG)
+    traj.timestamp = t
+    traj.theta1 = theta1
+    traj.theta2 = theta2
+    traj.step_s = args.dt
+    traj.duration_s = args.duration
+    traj.description = f"{args.desc} [mode={args.mode}, speed={args.speed}]"
+    traj.generation_date = str(datetime.datetime.now())
+
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    traj.to_csv(filepath=str(args.output))
+
+
+def launch_run(args, LOG: logging.Logger):
+    """Extract run arguments, build physical models, and execute numerical simulation."""
     LOG.info(f"Loading motor trajectory from: {args.input}")
     traj = Trajectory(LOG=LOG)
     traj.from_csv(filepath=str(args.input))
@@ -167,13 +332,12 @@ def launch_run(args, LOG):
     LOG.info("Computing kinematic profile (apparent gravity & angular tensors)...")
     kin = traj.compute_kinematics()
 
-    # Get physics params and overides ones 
+    # 1. Physical Parameter Resolution (Preset + CLI Overrides)
     params = {}
     if getattr(args, "preset", None) and args.preset in PRESETS:
         LOG.info(f"Applying physical preset: '{args.preset}'")
         params.update(PRESETS[args.preset])
     else:
-        # Default values if not PRESET
         params.update({
             "radius": 1.5e-3,
             "rho": 1202.0,
@@ -183,7 +347,6 @@ def launch_run(args, LOG):
             "r_tube": 0.05,
         })
 
-    # Overide on given params
     if getattr(args, "r", None) is not None:
         params["radius"] = args.r
     if getattr(args, "rho", None) is not None:
@@ -194,8 +357,10 @@ def launch_run(args, LOG):
         params["mu_f"] = args.mu_f
     if getattr(args, "k", None) is not None:
         params["k"] = args.k
+    if getattr(args, "tube_radius", None) is not None:
+        params["r_tube"] = args.tube_radius
 
-    # Build physics objects
+    # 2. Physics Objects Initialization
     x0_vec = np.array(args.x0, dtype=float)
     particle = Particle(radius=params["radius"], rho=params["rho"], x0=x0_vec)
     fluid = Fluid(rho=params["rho_f"], mu=params["mu_f"], k=params["k"])
@@ -206,7 +371,7 @@ def launch_run(args, LOG):
         f"beta={system.beta:.4f}, tau_k={system.compute_tau_k()}"
     )
 
-    # Numerical RK4 solving
+    # 3. Solver Execution
     LOG.info("Running RK4 overdamped solver...")
     solver = RK4Overdamped(system=system, r_tube=params["r_tube"], LOG=LOG)
     result = solver.solve(kin=kin, v0=np.zeros(3))
@@ -214,9 +379,11 @@ def launch_run(args, LOG):
     max_reynolds = np.max(result.reynolds)
     LOG.info(f"Simulation completed. Maximum Re_p: {max_reynolds:.3e}")
     if max_reynolds >= 0.1:
-        LOG.warning(f"Re_p exceeded 0.1 (Re_p={max_reynolds:.3e})! Creeping flow assumption may be violated.")
+        LOG.warning(
+            f"Re_p exceeded 0.1 (Re_p={max_reynolds:.3e})! Creeping flow assumption may be violated."
+        )
 
-    # CSV save if asked
+    # 4. Result Export
     if getattr(args, "output", None):
         output_path = Path(args.output)
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -237,35 +404,45 @@ def launch_run(args, LOG):
     return result
 
 
+# ==============================================================================
+# MAIN ENTRYPOINT
+# ==============================================================================
 
-# --------------- MAIN -------------------------
 
-def main(): 
-    """
-    - trajectory : Init and generates trajectories using Trajectory class. 
-    Read CSV trajectories and parse them, able to display a trajectory using 
-    --show argument. 
-    
-    - run : run a simulation using RK4Solver and Solver class.
-    """
-    # Define parsers
+def main():
+    """Main CLI entrypoint for PRISMA."""
     parser = argparse.ArgumentParser(
-        description="Cell organits simulation in RPM motion"
+        prog="prisma",
+        description="PRISMA: Microscale inclusion simulation under RPM kinematics.",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    run_parser = subparsers.add_parser(name="run")
+    # Subcommand: trajectory
+    traj_parser = subparsers.add_parser(
+        "trajectory",
+        help="Inspect, visualize, or generate RPM motor trajectories.",
+    )
+    init_trajectory(traj_parser)
 
-    init_run(parser, run_parser)
+    # Subcommand: run
+    run_parser = subparsers.add_parser(
+        "run",
+        help="Run particle numerical integration with RK4 solver.",
+    )
+    init_run(run_parser)
 
-    # Parsing 
     args = parser.parse_args()
 
-    if args.command == "run":
-        logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
-        logger = logging.getLogger("PRISMA")
-        launch_run(args, logger)
+    logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
+    logger = logging.getLogger("PRISMA")
 
+    if args.command == "trajectory":
+        if args.trajectory_command == "show":
+            launch_trajectory_show(args, logger)
+        elif args.trajectory_command == "generate":
+            launch_trajectory_generate(args, logger)
+    elif args.command == "run":
+        launch_run(args, logger)
 
 
 if __name__ == "__main__":

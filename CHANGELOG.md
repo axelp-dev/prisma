@@ -5,8 +5,9 @@
 ## TODO : 
 
 - [x] Write Mathematics backend on elasticity in `MATHEMATICS.md`. 
-- [ ] Implements `trajectory` command. 
+- [x] Implements `trajectory` command. 
 - [ ] Implements logs module with PDF reports on trajectory and simulation. 
+- [ ] Implement particle boundaries and bounce
 
 ---
 

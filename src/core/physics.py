@@ -33,6 +33,7 @@ class Particle:
     """
     radius: float       # m
     rho: float          # kg/m^3
+    x0: np.ndarray      # m
 
     @property
     def volume(self) -> float:
@@ -48,8 +49,9 @@ class Fluid:
     """
     Modelize simulation Fluid properties. 
     """
-    rho: float          # kg/m^3
-    mu: float           # Pa·s
+    rho: float                  # kg/m^3
+    mu: float                   # Pa * s
+    k : float = 0.0             # kg/s 
 
 
 class PhysicalSystem:
@@ -67,6 +69,16 @@ class PhysicalSystem:
     def compute_reynolds(self, v_norm: np.ndarray | float) -> np.ndarray | float:
         """Compute Reynolds' particle number Re_p."""
         return (2.0 * self.particle.radius * self.fluid.rho * v_norm) / self.fluid.mu
+
+    def compute_tau_k(self): 
+        """
+        Compute tau_k for elasticity recall processing during simulation. 
+        tau_k = (6 * pi * mu * R) / k
+        """
+        if self.fluid.k > 0.0 : 
+            return (6 * np.pi * self.fluid.mu * self.particle.radius) / self.fluid.k
+        else: 
+            return False
 
     def display(self): 
         """

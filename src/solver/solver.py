@@ -21,27 +21,24 @@ class Solver:
         self.overdamped = False
         self.LOG = LOG
 
-    def solve(self, kin: KinematicProfile, x0: np.ndarray, v0: np.ndarray) -> SimulationResult: 
+    def solve(self, kin: KinematicProfile, v0: np.ndarray) -> SimulationResult: 
         raise NotImplementedError("Sub-classes must implement solve() method.")
 
 class RK4Overdamped(Solver): 
 
     def solve(self, 
               kin: KinematicProfile, 
-              x0: np.ndarray, 
               v0: np.ndarray) -> SimulationResult: 
         """
         Solve PRISMA problem using Runge-Kunta 4 order method. 
         Assume that Re_p << 1 so we only have to solve the following 1st order
         equation : dr/dt = v_{limit}(r,t)
         """
-        """
-        TODO : Fill this part 
-        """
+
         N = len(kin.timestamp)
         dt = kin.timestamp[1] - kin.timestamp[0]
         r_t = np.zeros((N, 3))
-        r_t[0] = x0
+        r_t[0] = self.system.particle.x0
     
         for n in range(N - 1):
             g_n, g_next = kin.g[n], kin.g[n + 1]
@@ -79,6 +76,16 @@ class RK4Overdamped(Solver):
         """
         Process local v_{limit} in overdamped regime. 
         """
+        # Process motion equation on centrifugal and euler forces
         centrifugal = np.cross(Omega, np.cross(Omega, r))
         euler = np.cross(Omega_dot, r)
-        return self.system.tau_v * self.system.beta * (g - centrifugal - euler)
+        # Process elastiticity recall using origin position 
+        tau_k = self.system.compute_tau_k()
+        if tau_k: 
+            # using elasticity recall 
+            output = self.system.tau_v * self.system.beta * (g - centrifugal - euler) - (r - self.system.particle.x0) / tau_k
+        else: 
+            # Without elasticity
+            output = self.system.tau_v * self.system.beta * (g - centrifugal - euler)
+        return output
+    

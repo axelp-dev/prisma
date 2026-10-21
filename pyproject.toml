@@ -9,8 +9,11 @@ dependencies = [
     "numpy",
     "scipy",
     "matplotlib",
-    "pandas",
+    "pandas"
 ]
+
+[project.scripts]
+prisma = "src.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["."]

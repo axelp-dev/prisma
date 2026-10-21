@@ -13,6 +13,9 @@
 ## Unreleased 
 
 ### Added
+- Nested CLI subcommands under `prisma trajectory`:
+  - `prisma trajectory show`: parses motor CSV, computes apparent gravity $\vec{g}_{\mathcal{R}_2}$, displays diagnostic metrics in console, and provides interactive 4-panel matplotlib plots (`--plot`).
+  - `prisma trajectory generate`: synthesizes harmonic and constant angular speed profiles (`--mode`), writes metadata headers, and outputs clean CSV files.
 - Linear cytoskeletal elastic restoring force $\vec{F}_{\text{elast}} = -k(\vec{r} - \vec{x}_0)$ in `RK4Overdamped.v_limit`.
 - Hookean viscoelastic relaxation timescale $\tau_k = (6\pi\mu R) / k$ computed via `PhysicalSystem.compute_tau_k()`.
 - Initial equilibrium anchor vector `x0` stored directly within the frozen `Particle` dataclass.
@@ -22,6 +25,7 @@
 - Comprehensive test coverage in `tests/test_physics.py` and `tests/test_solver.py` for viscoelastic relaxation under static gravity.
 
 ### Changed
+- Refactored `init_run` and `init_trajectory` parser initialization routines to use independent subparser instances.
 - Aligned `solve` signature across `Solver` and `RK4Overdamped` to take initial position directly from `particle.x0`.
 - Streamlined `dependencies` in `pyproject.toml` by removing standard library package `argparse`.
 - Updated `ARCHITECTURE.md` and `README.md` to document the CLI pipeline and elasticity model.

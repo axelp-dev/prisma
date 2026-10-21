@@ -15,7 +15,10 @@
   - [3. Getting Started](#3-getting-started)
     - [3.1 Installation](#31-installation)
     - [3.2 CLI Usage](#32-cli-usage)
-    - [3.3 Running tests](#33-running-tests)
+      - [3.2.1 Inspect and Plot Trajectories](#321-inspect-and-plot-trajectories)
+      - [3.3.3 Generate motor profile](#333-generate-motor-profile)
+      - [3.3.4 Run Physical Numerical Simulation](#334-run-physical-numerical-simulation)
+    - [3.4 Running tests](#34-running-tests)
 
 
 ## 1. Overview
@@ -139,6 +142,25 @@ pip install -e .
 
 Below are some examples of the `prisma run` command and presets config using. 
 
+#### 3.2.1 Inspect and Plot Trajectories 
+
+```bash
+# Print summary metrics (residual gravity, max speeds, duration)
+prisma trajectory show -i data/trajectories/traj3_biaxial_desynchro.csv
+
+# Open interactive 4-panel diagnostic plot
+prisma trajectory show -i data/trajectories/traj3_biaxial_desynchro.csv --plot
+```
+
+#### 3.3.3 Generate motor profile 
+
+```bash 
+# Generate a 120-second desynchronized sinusoidal trajectory
+prisma trajectory generate -o data/trajectories/traj_desynchro.csv -d 120 --dt 0.01 -m desynchronized_sine --speed 0.8
+```
+
+#### 3.3.4 Run Physical Numerical Simulation
+
 ```bash 
 # Run with the calibrated macroscopic glycerol preset
 prisma run -i data/trajectories/traj3_biaxial_desynchro.csv -p glycerol_bead -o results.csv
@@ -150,7 +172,7 @@ prisma run -i data/trajectories/traj3_biaxial_desynchro.csv -p statolith -k 2e-4
 prisma run --help
 ```
 
-### 3.3 Running tests
+### 3.4 Running tests
 
 A complete `pytest` suite is maintained in the `test/` module and can be launched using : 
 

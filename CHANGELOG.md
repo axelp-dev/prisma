@@ -4,7 +4,7 @@
 
 ## TODO : 
 
-- [ ] Write Mathematics backend on elasticity in `MATHEMATICS.md`. 
+- [x] Write Mathematics backend on elasticity in `MATHEMATICS.md`. 
 - [ ] Implements `trajectory` command. 
 - [ ] Implements logs module with PDF reports on trajectory and simulation. 
 

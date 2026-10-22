@@ -11,6 +11,7 @@ import pandas as pd
 from src.core.physics import Fluid, Particle, PhysicalSystem
 from src.solver.solver import RK4Overdamped
 from src.trajectory.Trajectory import Trajectory
+from src.stats.report import TrajectoryReport
 
 # Predefined physical setups
 PRESETS = {
@@ -56,11 +57,7 @@ def init_trajectory(traj_parser: argparse.ArgumentParser):
         required=True,
         help="Path to the input CSV trajectory file.",
     )
-    show_parser.add_argument(
-        "--plot",
-        action="store_true",
-        help="Display interactive matplotlib plots of angles and apparent gravity.",
-    )
+    
     show_parser.add_argument(
         "--report",
         type=Path,
@@ -221,78 +218,19 @@ def init_run(run_parser: argparse.ArgumentParser):
 
 
 def launch_trajectory_show(args, LOG: logging.Logger):
-    """Load, analyze, and display trajectory metrics and optional visual plots."""
+    """Load, analyze, and display trajectory metrics, optional visual plots, or PDF reports."""
     LOG.info(f"Loading trajectory for inspection: {args.input}")
-    traj = Trajectory(LOG=LOG)
-    traj.from_csv(filepath=str(args.input))
+    
+    # Instantiate TrajectoryReport using the stats module interface
+    report = TrajectoryReport.from_csv(filepath=args.input, output_path=args.report, log=LOG)
 
-    kin = traj.compute_kinematics()
-
-    # Time-averaged residual gravity vector
-    mean_g = np.mean(kin.g, axis=0)
-    mean_g_norm = np.linalg.norm(mean_g)
-    max_omega1 = np.max(np.abs(kin.omega1))
-    max_omega2 = np.max(np.abs(kin.omega2))
-
-    print("\n" + "=" * 50)
-    print("           TRAJECTORY SUMMARY METRICS            ")
-    print("=" * 50)
-    print(f"File Source      : {args.input}")
-    print(f"Description      : {traj.description}")
-    print(f"Duration         : {traj.duration_s:.2f} s")
-    print(f"Sampling Step dt : {traj.step_s:.4f} s ({len(traj.timestamp)} points)")
-    print(f"Max |omega1|     : {max_omega1:.3f} rad/s ({np.degrees(max_omega1):.1f} deg/s)")
-    print(f"Max |omega2|     : {max_omega2:.3f} rad/s ({np.degrees(max_omega2):.1f} deg/s)")
-    print(f"Mean Gravity g_R2: [{mean_g[0]:+.4e}, {mean_g[1]:+.4e}, {mean_g[2]:+.4e}] m/s^2")
-    print(f"Residual g Norm  : {mean_g_norm:.4e} m/s^2 ({mean_g_norm / 9.81:.4e} g0)")
-    print("=" * 50 + "\n")
-
-    if args.plot:
-        LOG.info("Generating trajectory diagnostic plots...")
-        fig, axs = plt.subplots(2, 2, figsize=(11, 7))
-
-        # Motor angles
-        axs[0, 0].plot(traj.timestamp, traj.theta1, label=r"$\theta_1$ (inner)", color="tab:blue")
-        axs[0, 0].plot(traj.timestamp, traj.theta2, label=r"$\theta_2$ (outer)", color="tab:orange")
-        axs[0, 0].set_ylabel("Angle [rad]")
-        axs[0, 0].set_title("Motor Angular Positions")
-        axs[0, 0].legend()
-        axs[0, 0].grid(True, alpha=0.3)
-
-        # Angular velocities
-        axs[0, 1].plot(traj.timestamp, kin.omega1, label=r"$\omega_1$", color="tab:blue")
-        axs[0, 1].plot(traj.timestamp, kin.omega2, label=r"$\omega_2$", color="tab:orange")
-        axs[0, 1].set_ylabel("Angular Velocity [rad/s]")
-        axs[0, 1].set_title("Motor Velocities")
-        axs[0, 1].legend()
-        axs[0, 1].grid(True, alpha=0.3)
-
-        # Apparent gravity components in R2
-        axs[1, 0].plot(traj.timestamp, kin.g[:, 0], label=r"$g_x$")
-        axs[1, 0].plot(traj.timestamp, kin.g[:, 1], label=r"$g_y$")
-        axs[1, 0].plot(traj.timestamp, kin.g[:, 2], label=r"$g_z$")
-        axs[1, 0].set_xlabel("Time [s]")
-        axs[1, 0].set_ylabel(r"$g_{\mathcal{R}_2}\ [\mathrm{m/s^2}]$")
-        axs[1, 0].set_title(r"Apparent Gravity Vector in $\mathcal{R}_2$")
-        axs[1, 0].legend()
-        axs[1, 0].grid(True, alpha=0.3)
-
-        # Residual gravity convergence
-        cum_mean_g = np.cumsum(kin.g, axis=0) / np.arange(1, len(traj.timestamp) + 1)[:, None]
-        cum_norm = np.linalg.norm(cum_mean_g, axis=1)
-        axs[1, 1].plot(traj.timestamp, cum_norm / 9.81, color="tab:red")
-        axs[1, 1].set_xlabel("Time [s]")
-        axs[1, 1].set_ylabel(r"$\|\langle \vec{g} \rangle\| / g_0$")
-        axs[1, 1].set_title("Cumulative Time-Averaged Gravity")
-        axs[1, 1].set_yscale("log")
-        axs[1, 1].grid(True, which="both", alpha=0.3)
-
-        plt.tight_layout()
-        plt.show()
+    # Display clean formatted summary metrics in console
+    report.show_CLI()
 
     if args.report:
-        LOG.info(f"Report export requested: {args.report} (placeholder for stats module integration)")
-
+        LOG.info(f"Compiling and exporting 3-page PDF report to: {args.report}")
+        report.assemble_pdf()
+        LOG.info("PDF report successfully compiled and exported.")
 
 def launch_trajectory_generate(args, LOG: logging.Logger):
     """Generate synthetic angular motion profiles and write them to a structured CSV file."""

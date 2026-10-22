@@ -14,6 +14,7 @@
 ## Unreleased 
 
 ### Added
+- Stats module wrapper with abstract `Report` class defining `TrajectoryReport` one. Implements generations methods using `metrics.py` and `plotting.py`. 
 - `plotting.py` and `metrics.py` helpers for `TrajectoryReport` in new `src.stats` module. 
 - Nested CLI subcommands under `prisma trajectory`:
   - `prisma trajectory show`: parses motor CSV, computes apparent gravity $\vec{g}_{\mathcal{R}_2}$, displays diagnostic metrics in console, and provides interactive 4-panel matplotlib plots (`--plot`).

@@ -14,6 +14,7 @@
 ## Unreleased 
 
 ### Added
+- `plotting.py` and `metrics.py` helpers for `TrajectoryReport` in new `src.stats` module. 
 - Nested CLI subcommands under `prisma trajectory`:
   - `prisma trajectory show`: parses motor CSV, computes apparent gravity $\vec{g}_{\mathcal{R}_2}$, displays diagnostic metrics in console, and provides interactive 4-panel matplotlib plots (`--plot`).
   - `prisma trajectory generate`: synthesizes harmonic and constant angular speed profiles (`--mode`), writes metadata headers, and outputs clean CSV files.

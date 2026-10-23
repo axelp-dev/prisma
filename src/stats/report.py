@@ -15,6 +15,10 @@ from src.stats.metrics import (
     compute_residual_gravity_ratio,
     compute_spherical_coordinates,
     compute_total_angular_velocity_stats,
+    compute_confinement_stats,
+    compute_reynolds_stats,
+    compute_spatial_dispersion_stats,
+    compute_spectral_density,
 )
 from src.stats.plotting import (
     THEME,
@@ -22,8 +26,12 @@ from src.stats.plotting import (
     render_mollweide_heatmap,
     render_motor_kinematics,
     render_unit_sphere_trajectory,
+    render_particle_3d_confinement,
+    render_spectral_and_phase_analysis,
+    render_temporal_dynamics,
 )
 from src.trajectory.Trajectory import Trajectory
+from src.core.physics import KinematicProfile, PhysicalSystem, SimulationResult
 
 
 class Report(ABC):

@@ -15,6 +15,7 @@
 ## Unreleased 
 
 ### Added
+- Implemnets simulation report in `SimulationReport.py`. 
 - Include metrics and plotting functions for simulation report in `metrics.py` and `plotting.py`. 
 - Branching `TrajectoryReport` on cli wrapper in `cli.py`. 
 - Stats module wrapper with abstract `Report` class defining `TrajectoryReport` one. Implements generations methods using `metrics.py` and `plotting.py`. 

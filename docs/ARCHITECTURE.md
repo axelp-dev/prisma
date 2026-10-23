@@ -33,20 +33,27 @@ src/cli.py (command-line entrypoint, preset configuration, execution pipeline)
 Below is the physical layout of the `src/` directory. Each subpackage adheres to single-responsibility principles, hosting distinct domains of the simulation pipeline:
 
 ```text 
-src/
-├── cli.py                   # Argument parsing (argparse) and simulation launcher
-├── core/
-│   ├── conventions.py       # Reference frames (R0, R1, R2), gravity constants, sensor mounts
-│   ├── kinematics.py        # Canonical 2-axis kinematics engine, rotation mappings, singularities
-│   └── physics.py           # Particle, Fluid, PhysicalSystem, KinematicProfile, SimulationResult
-├── solver/
+src
+├── __init__.py
+├── cli.py                  # Argument parsing (argparse) and simulation 
+├── core
 │   ├── __init__.py
-│   ├── rk4_stokes.py        # Solver base class and RK4Overdamped implementation
-│   └── solver.py            # Generic solver interfaces
-├── trajectory/
+│   ├── conventions.py      # Reference frames (R0, R1, R2), gravity 
+│   ├── kinematics.py       # Canonical 2-axis kinematics engine, rotation 
+│   ├── models.py
+│   └── physics.py          # Particle, Fluid, PhysicalSystem, KinematicProfile, SimulationResult
+├── solver
 │   ├── __init__.py
+│   └── solver.py           # Solver base class and RK4Overdamped implementation
+├── stats
+│   ├── metrics.py          # Metrics helpers on Trajectory and SimulationResult containers for analytics
+│   ├── plotting.py         # Matplotlib generator helpers for PDF export
+│   ├── report.py           # Report contract and TrajectoryReport implementation
+│   └── simulation_report.py    # SimulationReport implementation
+├── trajectory
 │   └── Trajectory.py        # CSV import/export, profile generation, kinematic pipeline
 └── utils.py                 # File header extraction and metadata parsers
+
 ```
 An extensive test harness mirrored under `tests/` ensures bidirectional validation between kinematics and physics, enforcing contract consistency across all modules.
 
@@ -86,22 +93,9 @@ The standard execution pipeline transforms raw experimental or synthetic angular
 1. **Parameter & Preset Ingestion**: The CLI parses inputs, assigns physical presets, and configures overrides for the particle anchor x0 and fluid stiffness k.
 2. **Ingestion & Kinematics Parsing**: Trajectory coordinates are parsed, validated, and converted into continuous kinematic profiles via the canonical two-axis mapping engine.
 3. **Dynamical Solving**: The numerical solver evaluates instantaneous limit velocities—including hydrodynamic drag, centrifugal/Euler fictitious forces, and cytoskeletal restoring forces—advancing coordinates via an explicit 4th-order Runge-Kutta scheme.
-4. **Validation & Output**: Trajectory derivatives are computed post-integration to evaluate particle Reynolds numbers ($Re_p$), verifying creeping flow validity ($Re_p \ll 0.1$) before serializing results to disk.
+4. **PDF export**: Exporting `SimulationResult` into PDF file using `SimulationReport` generator. 
 
-### 4.1 Trajectory Analysis & Synthesis Workflow
-```text
-prisma trajectory generate
-         │
-         ▼
-Synthetic Kinematics Synthesis (sinusoidal / constant speed)
-         │
-         ▼ (Trajectory.to_csv)
-CSV Motor Profile [timestamp, theta1, theta2]
-         │
-         ▼ (prisma trajectory show --plot)
-Diagnostic Summary Metrics & Multi-Panel Kinematic Plots
-```
-### 4.2 Dynnamic Simulation Workflow
+### 4.1 Dynnamic Simulation Workflow
 
 ```text
 CLI Arguments / Presets (glycerol_bead, statolith)
@@ -124,7 +118,13 @@ Trajectory.compute_kinematics()
    SimulationResult
          │
          ▼
-CSV Export / Downstream Analysis
+    ┌─── └─────────┐
+    │              │
+    ▼              │
+CSV Export         │
+                   │
+                   ▼
+              PDF Export
 ```
 
 ---
@@ -135,7 +135,9 @@ The following class diagram illustrates the object-oriented structure of the fra
 
 ```mermaid 
 classDiagram
+    %% ==========================================
     %% Core Kinematics
+    %% ==========================================
     class CanonicalTwoAxis {
         +int n_axes
         +angles_to_point(angles) ndarray
@@ -143,7 +145,9 @@ classDiagram
         +rotation(angles) Rotation
     }
 
+    %% ==========================================
     %% Trajectory Module
+    %% ==========================================
     class Trajectory {
         +float step_s
         +float duration_s
@@ -167,7 +171,9 @@ classDiagram
     Trajectory *-- CanonicalTwoAxis : uses
     Trajectory --> KinematicProfile : produces
 
+    %% ==========================================
     %% Data Containers
+    %% ==========================================
     class KinematicProfile {
         +ndarray timestamp
         +ndarray theta1
@@ -186,7 +192,9 @@ classDiagram
         +ndarray reynolds
     }
 
+    %% ==========================================
     %% Core Physics
+    %% ==========================================
     class Particle {
         <<frozen>>
         +float radius
@@ -217,7 +225,9 @@ classDiagram
     PhysicalSystem *-- Particle
     PhysicalSystem *-- Fluid
 
+    %% ==========================================
     %% Solvers
+    %% ==========================================
     class Solver {
         <<abstract>>
         +PhysicalSystem system
@@ -236,4 +246,82 @@ classDiagram
     Solver o-- PhysicalSystem : references
     Solver ..> KinematicProfile : consumes
     Solver ..> SimulationResult : returns
+
+    %% ==========================================
+    %% Reporting & Statistics System
+    %% ==========================================
+    class Report {
+        <<abstract>>
+        +Path output_path
+        +compute_metrics()* dict
+        +generate_plots()* dict
+        +assemble_pdf(output_path)* Path
+        +show_CLI()* void
+    }
+
+    class TrajectoryReport {
+        +Trajectory traj
+        +dict metrics
+        +dict figures
+        +from_csv(filepath, output_path, log)$ TrajectoryReport
+        +compute_metrics() dict
+        +generate_plots() dict
+        +assemble_pdf(output_path) Path
+        +show_CLI() void
+    }
+
+    class SimulationReport {
+        +SimulationResult result
+        +KinematicProfile kin
+        +PhysicalSystem system
+        +float r_tube
+        +dict metrics
+        +dict figures
+        +from_csv(filepath, r_tube, output_path)$ SimulationReport
+        +compute_metrics() dict
+        +generate_plots() dict
+        +assemble_pdf() Path
+        +show_CLI() void
+    }
+
+    Report <|-- TrajectoryReport : inherits
+    Report <|-- SimulationReport : inherits
+
+    TrajectoryReport o-- Trajectory : analyzes
+    SimulationReport o-- SimulationResult : analyzes
+    SimulationReport o-- KinematicProfile : references
+    SimulationReport o-- PhysicalSystem : references
+
+    %% ==========================================
+    %% Helper Functional Modules
+    %% ==========================================
+    class MetricsModule {
+        <<module>>
+        +compute_mean_vectorial_gravities(g_values) ndarray
+        +compute_residual_gravity_ratio(g_values, g0) ndarray
+        +compute_dispersion_tensor(g_values) tuple
+        +compute_extreme_kinematics(omega1, omega2, t) dict
+        +compute_total_angular_velocity_stats(Omega) dict
+        +compute_spherical_coordinates(g_values) tuple
+        +compute_spectral_density(signal, dt) tuple
+        +compute_spatial_dispersion_stats(positions, x0) dict
+        +compute_confinement_stats(positions, r_tube) dict
+        +compute_reynolds_stats(reynolds_series) dict
+    }
+
+    class PlottingModule {
+        <<module>>
+        +apply_axes_styling(ax) void
+        +render_unit_sphere_trajectory(g, t, ax) void
+        +render_mollweide_heatmap(lon, lat, ax, bins) void
+        +render_motor_kinematics(metrics, fig) void
+        +render_particle_3d_confinement(pos, x0, r_tube, t, ax) void
+        +render_temporal_dynamics(metrics, fig) void
+        +render_spectral_and_phase_analysis(metrics, fig) void
+    }
+
+    TrajectoryReport ..> MetricsModule : calls
+    TrajectoryReport ..> PlottingModule : calls
+    SimulationReport ..> MetricsModule : calls
+    SimulationReport ..> PlottingModule : calls
 ```

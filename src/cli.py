@@ -1,4 +1,4 @@
-"""CLI wrapper for PRISMA simulation and trajectory management using argparse."""
+"""CLI wrapper for PRISMA simulation, trajectory management, and reporting using argparse."""
 
 import argparse
 import datetime
@@ -10,6 +10,8 @@ import pandas as pd
 
 from src.core.physics import Fluid, Particle, PhysicalSystem
 from src.solver.solver import RK4Overdamped
+from src.stats.report import TrajectoryReport
+from src.stats.simulation_report import SimulationReport
 from src.trajectory.Trajectory import Trajectory
 
 # Predefined physical setups
@@ -57,15 +59,10 @@ def init_trajectory(traj_parser: argparse.ArgumentParser):
         help="Path to the input CSV trajectory file.",
     )
     show_parser.add_argument(
-        "--plot",
-        action="store_true",
-        help="Display interactive matplotlib plots of angles and apparent gravity.",
-    )
-    show_parser.add_argument(
         "--report",
         type=Path,
         default=None,
-        help="Path to export a compiled summary report (PDF/Markdown format).",
+        help="Path to export a compiled 3-page PDF summary report.",
     )
 
     # --- Subcommand: generate ---
@@ -132,6 +129,12 @@ def init_run(run_parser: argparse.ArgumentParser):
         type=Path,
         default=None,
         help="Path to save the resulting simulation trajectory CSV.",
+    )
+    io_group.add_argument(
+        "--report",
+        type=Path,
+        default=None,
+        help="Path to export a compiled 3-page PDF simulation report directly after solving.",
     )
 
     # --- Temporal & Numerical Setup ---
@@ -215,83 +218,60 @@ def init_run(run_parser: argparse.ArgumentParser):
     )
 
 
+def init_result(result_parser: argparse.ArgumentParser):
+    """Configure subparsers for simulation result CSV files manipulation."""
+    res_subparsers = result_parser.add_subparsers(
+        dest="result_command", required=True
+    )
+
+    # --- Subcommand: show ---
+    show_parser = res_subparsers.add_parser(
+        "show",
+        help="Inspect, summarize, or plot an existing simulation result CSV file.",
+    )
+    show_parser.add_argument(
+        "-i",
+        "--input",
+        type=Path,
+        required=True,
+        help="Path to the input simulation result CSV file.",
+    )
+    show_parser.add_argument(
+        "-rt",
+        "--tube-radius",
+        dest="tube_radius",
+        type=float,
+        default=0.05,
+        help="Confinement tube or cell radius in meters (default: 0.05 m).",
+    )
+    show_parser.add_argument(
+        "--plot",
+        action="store_true",
+        help="Display interactive matplotlib diagnostic figures.",
+    )
+    show_parser.add_argument(
+        "--report",
+        type=Path,
+        default=None,
+        help="Path to export a compiled 3-page PDF simulation report.",
+    )
+
+
 # ==============================================================================
 # EXECUTION ROUTINES
 # ==============================================================================
 
 
 def launch_trajectory_show(args, LOG: logging.Logger):
-    """Load, analyze, and display trajectory metrics and optional visual plots."""
+    """Load, analyze, and display trajectory metrics, optional visual plots, or PDF reports."""
     LOG.info(f"Loading trajectory for inspection: {args.input}")
-    traj = Trajectory(LOG=LOG)
-    traj.from_csv(filepath=str(args.input))
-
-    kin = traj.compute_kinematics()
-
-    # Time-averaged residual gravity vector
-    mean_g = np.mean(kin.g, axis=0)
-    mean_g_norm = np.linalg.norm(mean_g)
-    max_omega1 = np.max(np.abs(kin.omega1))
-    max_omega2 = np.max(np.abs(kin.omega2))
-
-    print("\n" + "=" * 50)
-    print("           TRAJECTORY SUMMARY METRICS            ")
-    print("=" * 50)
-    print(f"File Source      : {args.input}")
-    print(f"Description      : {traj.description}")
-    print(f"Duration         : {traj.duration_s:.2f} s")
-    print(f"Sampling Step dt : {traj.step_s:.4f} s ({len(traj.timestamp)} points)")
-    print(f"Max |omega1|     : {max_omega1:.3f} rad/s ({np.degrees(max_omega1):.1f} deg/s)")
-    print(f"Max |omega2|     : {max_omega2:.3f} rad/s ({np.degrees(max_omega2):.1f} deg/s)")
-    print(f"Mean Gravity g_R2: [{mean_g[0]:+.4e}, {mean_g[1]:+.4e}, {mean_g[2]:+.4e}] m/s^2")
-    print(f"Residual g Norm  : {mean_g_norm:.4e} m/s^2 ({mean_g_norm / 9.81:.4e} g0)")
-    print("=" * 50 + "\n")
-
-    if args.plot:
-        LOG.info("Generating trajectory diagnostic plots...")
-        fig, axs = plt.subplots(2, 2, figsize=(11, 7))
-
-        # Motor angles
-        axs[0, 0].plot(traj.timestamp, traj.theta1, label=r"$\theta_1$ (inner)", color="tab:blue")
-        axs[0, 0].plot(traj.timestamp, traj.theta2, label=r"$\theta_2$ (outer)", color="tab:orange")
-        axs[0, 0].set_ylabel("Angle [rad]")
-        axs[0, 0].set_title("Motor Angular Positions")
-        axs[0, 0].legend()
-        axs[0, 0].grid(True, alpha=0.3)
-
-        # Angular velocities
-        axs[0, 1].plot(traj.timestamp, kin.omega1, label=r"$\omega_1$", color="tab:blue")
-        axs[0, 1].plot(traj.timestamp, kin.omega2, label=r"$\omega_2$", color="tab:orange")
-        axs[0, 1].set_ylabel("Angular Velocity [rad/s]")
-        axs[0, 1].set_title("Motor Velocities")
-        axs[0, 1].legend()
-        axs[0, 1].grid(True, alpha=0.3)
-
-        # Apparent gravity components in R2
-        axs[1, 0].plot(traj.timestamp, kin.g[:, 0], label=r"$g_x$")
-        axs[1, 0].plot(traj.timestamp, kin.g[:, 1], label=r"$g_y$")
-        axs[1, 0].plot(traj.timestamp, kin.g[:, 2], label=r"$g_z$")
-        axs[1, 0].set_xlabel("Time [s]")
-        axs[1, 0].set_ylabel(r"$g_{\mathcal{R}_2}\ [\mathrm{m/s^2}]$")
-        axs[1, 0].set_title(r"Apparent Gravity Vector in $\mathcal{R}_2$")
-        axs[1, 0].legend()
-        axs[1, 0].grid(True, alpha=0.3)
-
-        # Residual gravity convergence
-        cum_mean_g = np.cumsum(kin.g, axis=0) / np.arange(1, len(traj.timestamp) + 1)[:, None]
-        cum_norm = np.linalg.norm(cum_mean_g, axis=1)
-        axs[1, 1].plot(traj.timestamp, cum_norm / 9.81, color="tab:red")
-        axs[1, 1].set_xlabel("Time [s]")
-        axs[1, 1].set_ylabel(r"$\|\langle \vec{g} \rangle\| / g_0$")
-        axs[1, 1].set_title("Cumulative Time-Averaged Gravity")
-        axs[1, 1].set_yscale("log")
-        axs[1, 1].grid(True, which="both", alpha=0.3)
-
-        plt.tight_layout()
-        plt.show()
+    report = TrajectoryReport.from_csv(filepath=args.input, output_path=args.report, log=LOG)
+    report.show_CLI()
 
     if args.report:
-        LOG.info(f"Report export requested: {args.report} (placeholder for stats module integration)")
+        LOG.info(f"Compiling and exporting 3-page PDF trajectory report to: {args.report}")
+        report.assemble_pdf()
+        LOG.info("PDF report successfully compiled.")
 
 
 def launch_trajectory_generate(args, LOG: logging.Logger):
@@ -303,7 +283,6 @@ def launch_trajectory_generate(args, LOG: logging.Logger):
         theta1 = (args.speed * t) % (2 * np.pi)
         theta2 = (args.speed * 0.7 * t) % (2 * np.pi)
     elif args.mode == "desynchronized_sine":
-        # Desynchronized harmonic motion on both gimbals
         w1, w2 = args.speed, args.speed * np.sqrt(2)
         theta1 = np.pi * np.sin(w1 * t)
         theta2 = np.pi * np.sin(w2 * t)
@@ -324,7 +303,7 @@ def launch_trajectory_generate(args, LOG: logging.Logger):
 
 
 def launch_run(args, LOG: logging.Logger):
-    """Extract run arguments, build physical models, and execute numerical simulation."""
+    """Extract run arguments, build physical models, execute RK4 solving, and generate reports."""
     LOG.info(f"Loading motor trajectory from: {args.input}")
     traj = Trajectory(LOG=LOG)
     traj.from_csv(filepath=str(args.input))
@@ -383,7 +362,7 @@ def launch_run(args, LOG: logging.Logger):
             f"Re_p exceeded 0.1 (Re_p={max_reynolds:.3e})! Creeping flow assumption may be violated."
         )
 
-    # 4. Result Export
+    # 4. Result CSV Export
     if getattr(args, "output", None):
         output_path = Path(args.output)
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -401,7 +380,42 @@ def launch_run(args, LOG: logging.Logger):
         })
         df_out.to_csv(output_path, index=False)
 
+    # 5. Direct Simulation Report Generation
+    if getattr(args, "report", None):
+        LOG.info(f"Compiling simulation PDF report to: {args.report}")
+        sim_report = SimulationReport(
+            result=result,
+            kin=kin,
+            system=system,
+            r_tube=params["r_tube"],
+            output_path=args.report,
+        )
+        sim_report.show_CLI()
+        sim_report.assemble_pdf()
+        LOG.info("Simulation PDF report successfully generated.")
+
     return result
+
+
+def launch_result_show(args, LOG: logging.Logger):
+    """Load an existing simulation result CSV, display diagnostics, and generate report."""
+    LOG.info(f"Loading simulation result CSV from: {args.input}")
+    sim_report = SimulationReport.from_csv(
+        filepath=args.input,
+        r_tube=args.tube_radius,
+        output_path=args.report,
+    )
+    sim_report.show_CLI()
+
+    if args.plot:
+        LOG.info("Rendering interactive simulation diagnostic plots...")
+        sim_report.generate_plots()
+        plt.show()
+
+    if args.report:
+        LOG.info(f"Compiling and exporting PDF simulation report to: {args.report}")
+        sim_report.assemble_pdf()
+        LOG.info("Simulation PDF report successfully compiled.")
 
 
 # ==============================================================================
@@ -431,6 +445,13 @@ def main():
     )
     init_run(run_parser)
 
+    # Subcommand: result
+    result_parser = subparsers.add_parser(
+        "result",
+        help="Inspect, visualize, or generate reports from existing simulation CSV results.",
+    )
+    init_result(result_parser)
+
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
@@ -443,6 +464,9 @@ def main():
             launch_trajectory_generate(args, logger)
     elif args.command == "run":
         launch_run(args, logger)
+    elif args.command == "result":
+        if args.result_command == "show":
+            launch_result_show(args, logger)
 
 
 if __name__ == "__main__":

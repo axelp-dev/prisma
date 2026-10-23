@@ -6,7 +6,8 @@
 
 - [x] Write Mathematics backend on elasticity in `MATHEMATICS.md`. 
 - [x] Implements `trajectory` command. 
-- [ ] Implements logs module with PDF reports on trajectory and simulation. 
+- [x] Implements logs module with PDF reports on trajectory
+- [x] Implements log module on simulation. 
 - [ ] Implement particle boundaries and bounce
 
 ---
@@ -14,6 +15,12 @@
 ## Unreleased 
 
 ### Added
+- Branching `SimulationReport` on cli wrapper in `cli./py`. 
+- Implement simulation report in `SimulationReport.py`. 
+- Include metrics and plotting functions for simulation report in `metrics.py` and `plotting.py`. 
+- Branching `TrajectoryReport` on cli wrapper in `cli.py`. 
+- Stats module wrapper with abstract `Report` class defining `TrajectoryReport` one. Implements generations methods using `metrics.py` and `plotting.py`. 
+- `plotting.py` and `metrics.py` helpers for `TrajectoryReport` in new `src.stats` module. 
 - Nested CLI subcommands under `prisma trajectory`:
   - `prisma trajectory show`: parses motor CSV, computes apparent gravity $\vec{g}_{\mathcal{R}_2}$, displays diagnostic metrics in console, and provides interactive 4-panel matplotlib plots (`--plot`).
   - `prisma trajectory generate`: synthesizes harmonic and constant angular speed profiles (`--mode`), writes metadata headers, and outputs clean CSV files.
@@ -26,6 +33,7 @@
 - Comprehensive test coverage in `tests/test_physics.py` and `tests/test_solver.py` for viscoelastic relaxation under static gravity.
 
 ### Changed
+- Refactored `cli.py` to remove `--plot` option from `prisma trajectory show` command and disable plot display. 
 - Refactored `init_run` and `init_trajectory` parser initialization routines to use independent subparser instances.
 - Aligned `solve` signature across `Solver` and `RK4Overdamped` to take initial position directly from `particle.x0`.
 - Streamlined `dependencies` in `pyproject.toml` by removing standard library package `argparse`.

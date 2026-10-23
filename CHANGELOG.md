@@ -7,7 +7,7 @@
 - [x] Write Mathematics backend on elasticity in `MATHEMATICS.md`. 
 - [x] Implements `trajectory` command. 
 - [x] Implements logs module with PDF reports on trajectory
-- [ ] Implements log module on simulation. 
+- [x] Implements log module on simulation. 
 - [ ] Implement particle boundaries and bounce
 
 ---
@@ -15,6 +15,7 @@
 ## Unreleased 
 
 ### Added
+- Include metrics and plotting functions for simulation report in `metrics.py` and `plotting.py`. 
 - Branching `TrajectoryReport` on cli wrapper in `cli.py`. 
 - Stats module wrapper with abstract `Report` class defining `TrajectoryReport` one. Implements generations methods using `metrics.py` and `plotting.py`. 
 - `plotting.py` and `metrics.py` helpers for `TrajectoryReport` in new `src.stats` module. 

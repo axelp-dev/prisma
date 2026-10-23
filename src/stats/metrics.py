@@ -3,6 +3,110 @@
 import numpy as np
 
 
+def compute_spectral_density(
+    signal: np.ndarray, dt: float
+) -> tuple[np.ndarray, np.ndarray]:
+    """Compute single-sided Fast Fourier Transform (FFT) amplitude spectrum.
+
+    Parameters:
+        signal (np.ndarray): 1D temporal signal array.
+        dt (float): Sampling step in seconds.
+
+    Returns:
+        tuple[np.ndarray, np.ndarray]:
+            - freqs: Non-negative frequency bins [Hz].
+            - amplitudes: Single-sided normalized amplitudes.
+    """
+    n = len(signal)
+    fft_vals = np.fft.rfft(signal - np.mean(signal))  # Remove DC bias
+    amplitudes = (2.0 / n) * np.abs(fft_vals)
+    amplitudes[0] /= 2.0
+    freqs = np.fft.rfftfreq(n, d=dt)
+    return freqs, amplitudes
+
+
+def compute_spatial_dispersion_stats(
+    positions: np.ndarray, x0: np.ndarray
+) -> dict:
+    """Compute particle gyration radius, net drift, path length, and anchor deviation.
+
+    Parameters:
+        positions (np.ndarray): Shape (N, 3) trajectory array.
+        x0 (np.ndarray): Initial equilibrium anchor vector (3,).
+
+    Returns:
+        dict: Spatial dispersion and trajectory extent indicators.
+    """
+    # Net drift and total integrated distance
+    net_displacement_vec = positions[-1] - positions[0]
+    net_drift = float(np.linalg.norm(net_displacement_vec))
+
+    segment_vectors = np.diff(positions, axis=0)
+    segment_lengths = np.linalg.norm(segment_vectors, axis=1)
+    total_path_length = float(np.sum(segment_lengths))
+
+    tortuosity = (
+        float(total_path_length / net_drift)
+        if net_drift > 1e-12
+        else float("inf")
+    )
+
+    # Gyration radius around trajectory centroid
+    centroid = np.mean(positions, axis=0)
+    deviations = positions - centroid
+    gyration_radius = float(np.sqrt(np.mean(np.sum(deviations**2, axis=1))))
+
+    # RMS distance to elastic anchor x0
+    elastic_anchor_deviations = positions - x0
+    rms_anchor_distance = float(
+        np.sqrt(np.mean(np.sum(elastic_anchor_deviations**2, axis=1)))
+    )
+
+    return {
+        "centroid": centroid,
+        "net_drift": net_drift,
+        "total_path_length": total_path_length,
+        "tortuosity": tortuosity,
+        "gyration_radius": gyration_radius,
+        "rms_anchor_distance": rms_anchor_distance,
+    }
+
+
+def compute_confinement_stats(
+    positions: np.ndarray, r_tube: float
+) -> dict:
+    """Analyze wall proximity and inelastic contact occurrences."""
+    radial_distances = np.linalg.norm(positions, axis=1)
+    max_radial_distance = float(np.max(radial_distances))
+    min_wall_distance = float(r_tube - max_radial_distance)
+
+    # Fraction of time spent on or beyond boundary
+    contact_indices = radial_distances >= (r_tube - 1e-8)
+    contact_time_ratio = float(np.mean(contact_indices))
+
+    return {
+        "radial_distances": radial_distances,
+        "max_radial_distance": max_radial_distance,
+        "min_wall_distance": min_wall_distance,
+        "contact_time_ratio": contact_time_ratio,
+    }
+
+
+def compute_reynolds_stats(reynolds_series: np.ndarray) -> dict:
+    """Compute particle Reynolds number distribution indicators."""
+    max_re = float(np.max(reynolds_series))
+    mean_re = float(np.mean(reynolds_series))
+    median_re = float(np.median(reynolds_series))
+    re_exceeded = bool(max_re >= 0.1)
+
+    return {
+        "max_re": max_re,
+        "mean_re": mean_re,
+        "median_re": median_re,
+        "re_exceeded": re_exceeded,
+    }
+
+
 def compute_mean_vectorial_gravities(g_values: np.ndarray) -> np.ndarray:
     """Compute cumulative time-averaged gravity vector series: <g>(t)."""
     g_cumsum = np.cumsum(g_values, axis=0)

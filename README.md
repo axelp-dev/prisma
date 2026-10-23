@@ -15,9 +15,10 @@
   - [3. Getting Started](#3-getting-started)
     - [3.1 Installation](#31-installation)
     - [3.2 CLI Usage](#32-cli-usage)
-      - [3.2.1 Inspect and Plot Trajectories](#321-inspect-and-plot-trajectories)
-      - [3.3.3 Generate motor profile](#333-generate-motor-profile)
-      - [3.3.4 Run Physical Numerical Simulation](#334-run-physical-numerical-simulation)
+      - [3.2.1 Inspect and Plot Trajectories (`prisma trajectory`)](#321-inspect-and-plot-trajectories-prisma-trajectory)
+      - [3.3.3 Generate motor profile (`prisma trajectory generate`)](#333-generate-motor-profile-prisma-trajectory-generate)
+      - [3.3.4 Run Physical Numerical Simulation (`prisma run`)](#334-run-physical-numerical-simulation-prisma-run)
+      - [3.3.5 Generate report from a CSV `SimulationResult` dump (`prisma result show`)](#335-generate-report-from-a-csv-simulationresult-dump-prisma-result-show)
     - [3.4 Running tests](#34-running-tests)
 
 
@@ -37,6 +38,7 @@ The engine leverages a `RK4Stokes` solver on the motion equations using Centrifu
 - **Microgravity Verification Metrics:** Continuous tracking of the particle Reynolds number ($Re_p$) to systematically validate the creeping-flow assumption.
 - **Dedicated CLI Pipeline:** Modular command-line tool `prisma` to configure presets, override physical parameters, and serialize results.
 - **Modular Architecture:** Decoupled layout separating physical models, trajectory import/export, and numerical solvers.
+- **PDF Report generator:** `stats` module generating PDF report for `Trajectory` and `SimulationResults` containers. 
 
 ---
 
@@ -67,7 +69,9 @@ A simulation `run` calls all the modules independantly from the CLI wrapper in `
 1. `Trajectory` is loaded using CSV filepath or generated.
 2. `Trajectory.compute_kinematics()` compute the associated values to the trajectory to pre-compute solver values. 
 3. `KinematicProfile` is instanciated from the preious object and the selected `Solver` compute the trajectory from the RPM trajectory stored in `Trajectory`. 
-4. A `SimulationResult` can be saved or plotted at the end of the solving process. 
+4. A `SimulationResult` can be saved at the end of the solving process. 
+5. A `Report` wrapper to generate a PDF report of the simulation.
+
 
 ```txt 
 CSV Trajectory [timestamp, theta1, theta2]
@@ -87,7 +91,13 @@ CSV Trajectory [timestamp, theta1, theta2]
          SimulationResult
                 │
                 ▼
-  CSV Export / 3D Trajectory Visualization / Residual Acceleration Metrics
+    ┌───────────└─────────┐
+    │                     │
+    ▼                     │
+CSV Export                │
+                          │
+                          ▼
+                     PDF Export
 ```
 
 For in-depth software design and physical derivations, see:
@@ -112,6 +122,7 @@ The previous chart presented the data pipeline, below are presented the physical
 │   ├── core/                # Conventions, 2-axis kinematics, physics dataclasses
 │   ├── solver/              # Numerical integration engines (Solver, RK4Overdamped)
 │   ├── trajectory/          # Trajectory loading, export, and kinematics pipeline
+│   ├── stats/          # PDF Generation (Simulation & Trajectory)
 │   └── utils.py             # CSV header and metadata parsers
 └── tests/                   # Pytest test suite
 ```
@@ -140,26 +151,26 @@ pip install -e .
 
 ### 3.2 CLI Usage 
 
-Below are some examples of the `prisma run` command and presets config using. 
+Below are some examples of the `prisma` command and presets config using. 
 
-#### 3.2.1 Inspect and Plot Trajectories 
+#### 3.2.1 Inspect and Plot Trajectories (`prisma trajectory`)
 
 ```bash
 # Print summary metrics (residual gravity, max speeds, duration)
 prisma trajectory show -i data/trajectories/traj3_biaxial_desynchro.csv
 
-# Open interactive 4-panel diagnostic plot
-prisma trajectory show -i data/trajectories/traj3_biaxial_desynchro.csv --plot
+# Show CLI trajectory and export PDF report in given --report filepath
+prisma trajectory show -i data/trajectories/traj3_biaxial_desynchro.csv --report data/trajectories/traj3.pdf
 ```
 
-#### 3.3.3 Generate motor profile 
+#### 3.3.3 Generate motor profile (`prisma trajectory generate`)
 
 ```bash 
 # Generate a 120-second desynchronized sinusoidal trajectory
 prisma trajectory generate -o data/trajectories/traj_desynchro.csv -d 120 --dt 0.01 -m desynchronized_sine --speed 0.8
 ```
 
-#### 3.3.4 Run Physical Numerical Simulation
+#### 3.3.4 Run Physical Numerical Simulation (`prisma run`)
 
 ```bash 
 # Run with the calibrated macroscopic glycerol preset
@@ -168,8 +179,18 @@ prisma run -i data/trajectories/traj3_biaxial_desynchro.csv -p glycerol_bead -o 
 # Run with the intracellular statolith preset and custom actin stiffness
 prisma run -i data/trajectories/traj3_biaxial_desynchro.csv -p statolith -k 2e-4 --x0 0.0 0.0 1e-6
 
-# Inspect available CLI arguments
-prisma run --help
+# Run with the intracellular statolith preset and generate a SimulationReport into given --report PDF filepath
+prisma run -i data/trajectories/traj3_biaxial_desynchro.csv --report data/results/result_PDF_traj3.pdf
+```
+
+#### 3.3.5 Generate report from a CSV `SimulationResult` dump (`prisma result show`)
+
+```bash 
+# Show Matplotlib figures from existing CSV SimulationReport dump 
+prisma result show -i <csv_dump_filepath> --plot
+
+# Generate PDF report from existing CSV SimulationReport dump 
+prisma result show -i  <csv_dump_filepath> --plot --report <exporting-pdf-filepath.pdf> 
 ```
 
 ### 3.4 Running tests

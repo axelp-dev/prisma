@@ -1,4 +1,4 @@
-"""CLI wrapper for PRISMA simulation and trajectory management using argparse."""
+"""CLI wrapper for PRISMA simulation, trajectory management, and reporting using argparse."""
 
 import argparse
 import datetime
@@ -10,8 +10,9 @@ import pandas as pd
 
 from src.core.physics import Fluid, Particle, PhysicalSystem
 from src.solver.solver import RK4Overdamped
-from src.trajectory.Trajectory import Trajectory
 from src.stats.report import TrajectoryReport
+from src.stats.simulation_report import SimulationReport
+from src.trajectory.Trajectory import Trajectory
 
 # Predefined physical setups
 PRESETS = {
@@ -57,12 +58,11 @@ def init_trajectory(traj_parser: argparse.ArgumentParser):
         required=True,
         help="Path to the input CSV trajectory file.",
     )
-    
     show_parser.add_argument(
         "--report",
         type=Path,
         default=None,
-        help="Path to export a compiled summary report (PDF/Markdown format).",
+        help="Path to export a compiled 3-page PDF summary report.",
     )
 
     # --- Subcommand: generate ---
@@ -129,6 +129,12 @@ def init_run(run_parser: argparse.ArgumentParser):
         type=Path,
         default=None,
         help="Path to save the resulting simulation trajectory CSV.",
+    )
+    io_group.add_argument(
+        "--report",
+        type=Path,
+        default=None,
+        help="Path to export a compiled 3-page PDF simulation report directly after solving.",
     )
 
     # --- Temporal & Numerical Setup ---
@@ -212,6 +218,45 @@ def init_run(run_parser: argparse.ArgumentParser):
     )
 
 
+def init_result(result_parser: argparse.ArgumentParser):
+    """Configure subparsers for simulation result CSV files manipulation."""
+    res_subparsers = result_parser.add_subparsers(
+        dest="result_command", required=True
+    )
+
+    # --- Subcommand: show ---
+    show_parser = res_subparsers.add_parser(
+        "show",
+        help="Inspect, summarize, or plot an existing simulation result CSV file.",
+    )
+    show_parser.add_argument(
+        "-i",
+        "--input",
+        type=Path,
+        required=True,
+        help="Path to the input simulation result CSV file.",
+    )
+    show_parser.add_argument(
+        "-rt",
+        "--tube-radius",
+        dest="tube_radius",
+        type=float,
+        default=0.05,
+        help="Confinement tube or cell radius in meters (default: 0.05 m).",
+    )
+    show_parser.add_argument(
+        "--plot",
+        action="store_true",
+        help="Display interactive matplotlib diagnostic figures.",
+    )
+    show_parser.add_argument(
+        "--report",
+        type=Path,
+        default=None,
+        help="Path to export a compiled 3-page PDF simulation report.",
+    )
+
+
 # ==============================================================================
 # EXECUTION ROUTINES
 # ==============================================================================
@@ -220,17 +265,14 @@ def init_run(run_parser: argparse.ArgumentParser):
 def launch_trajectory_show(args, LOG: logging.Logger):
     """Load, analyze, and display trajectory metrics, optional visual plots, or PDF reports."""
     LOG.info(f"Loading trajectory for inspection: {args.input}")
-    
-    # Instantiate TrajectoryReport using the stats module interface
     report = TrajectoryReport.from_csv(filepath=args.input, output_path=args.report, log=LOG)
-
-    # Display clean formatted summary metrics in console
     report.show_CLI()
 
     if args.report:
-        LOG.info(f"Compiling and exporting 3-page PDF report to: {args.report}")
+        LOG.info(f"Compiling and exporting 3-page PDF trajectory report to: {args.report}")
         report.assemble_pdf()
-        LOG.info("PDF report successfully compiled and exported.")
+        LOG.info("PDF report successfully compiled.")
+
 
 def launch_trajectory_generate(args, LOG: logging.Logger):
     """Generate synthetic angular motion profiles and write them to a structured CSV file."""
@@ -241,7 +283,6 @@ def launch_trajectory_generate(args, LOG: logging.Logger):
         theta1 = (args.speed * t) % (2 * np.pi)
         theta2 = (args.speed * 0.7 * t) % (2 * np.pi)
     elif args.mode == "desynchronized_sine":
-        # Desynchronized harmonic motion on both gimbals
         w1, w2 = args.speed, args.speed * np.sqrt(2)
         theta1 = np.pi * np.sin(w1 * t)
         theta2 = np.pi * np.sin(w2 * t)
@@ -262,7 +303,7 @@ def launch_trajectory_generate(args, LOG: logging.Logger):
 
 
 def launch_run(args, LOG: logging.Logger):
-    """Extract run arguments, build physical models, and execute numerical simulation."""
+    """Extract run arguments, build physical models, execute RK4 solving, and generate reports."""
     LOG.info(f"Loading motor trajectory from: {args.input}")
     traj = Trajectory(LOG=LOG)
     traj.from_csv(filepath=str(args.input))
@@ -321,7 +362,7 @@ def launch_run(args, LOG: logging.Logger):
             f"Re_p exceeded 0.1 (Re_p={max_reynolds:.3e})! Creeping flow assumption may be violated."
         )
 
-    # 4. Result Export
+    # 4. Result CSV Export
     if getattr(args, "output", None):
         output_path = Path(args.output)
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -339,7 +380,42 @@ def launch_run(args, LOG: logging.Logger):
         })
         df_out.to_csv(output_path, index=False)
 
+    # 5. Direct Simulation Report Generation
+    if getattr(args, "report", None):
+        LOG.info(f"Compiling simulation PDF report to: {args.report}")
+        sim_report = SimulationReport(
+            result=result,
+            kin=kin,
+            system=system,
+            r_tube=params["r_tube"],
+            output_path=args.report,
+        )
+        sim_report.show_CLI()
+        sim_report.assemble_pdf()
+        LOG.info("Simulation PDF report successfully generated.")
+
     return result
+
+
+def launch_result_show(args, LOG: logging.Logger):
+    """Load an existing simulation result CSV, display diagnostics, and generate report."""
+    LOG.info(f"Loading simulation result CSV from: {args.input}")
+    sim_report = SimulationReport.from_csv(
+        filepath=args.input,
+        r_tube=args.tube_radius,
+        output_path=args.report,
+    )
+    sim_report.show_CLI()
+
+    if args.plot:
+        LOG.info("Rendering interactive simulation diagnostic plots...")
+        sim_report.generate_plots()
+        plt.show()
+
+    if args.report:
+        LOG.info(f"Compiling and exporting PDF simulation report to: {args.report}")
+        sim_report.assemble_pdf()
+        LOG.info("Simulation PDF report successfully compiled.")
 
 
 # ==============================================================================
@@ -369,6 +445,13 @@ def main():
     )
     init_run(run_parser)
 
+    # Subcommand: result
+    result_parser = subparsers.add_parser(
+        "result",
+        help="Inspect, visualize, or generate reports from existing simulation CSV results.",
+    )
+    init_result(result_parser)
+
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
@@ -381,6 +464,9 @@ def main():
             launch_trajectory_generate(args, logger)
     elif args.command == "run":
         launch_run(args, logger)
+    elif args.command == "result":
+        if args.result_command == "show":
+            launch_result_show(args, logger)
 
 
 if __name__ == "__main__":

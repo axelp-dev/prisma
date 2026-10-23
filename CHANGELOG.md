@@ -12,7 +12,17 @@
 
 ---
 
-## Unreleased 
+## Unreleased
+
+### Added
+
+### Changed 
+
+### Fixed
+
+---
+
+## [v0.1.1] - 2026-10-23
 
 ### Added
 - Branching `SimulationReport` on cli wrapper in `cli./py`. 

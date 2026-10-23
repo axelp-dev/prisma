@@ -1,7 +1,7 @@
 # 🦠 PRISMA
 
 > Particle in Random-positioning Integrator for Simulated Microgravity Analysis
-
+> **Version -  v0.1.1**
 ---
 
 - [🦠 PRISMA](#-prisma)

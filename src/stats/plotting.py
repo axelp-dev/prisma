@@ -17,6 +17,7 @@ THEME = {
 }
 
 
+
 def render_particle_3d_confinement(
     positions: np.ndarray,
     x0: np.ndarray,
@@ -39,7 +40,7 @@ def render_particle_3d_confinement(
     xs = r_s * np.outer(np.cos(phi), np.sin(theta))
     ys = r_s * np.outer(np.sin(phi), np.sin(theta))
     zs = r_s * np.outer(np.ones_like(phi), np.cos(theta))
-    ax.plot_wireframe(xs, ys, zs, color="#A0AEC0", alpha=0.18, linewidth=0.5)
+    ax.plot_wireframe(xs, ys, zs, color="#A0AEC0", alpha=0.8, linewidth=0.5)
 
     # 2. Chronological trajectory scatter
     sc = ax.scatter(
@@ -51,6 +52,16 @@ def render_particle_3d_confinement(
         s=4,
         alpha=0.75,
         rasterized=True,
+    )
+
+    ax.plot(
+        pos_s[:, 0],
+        pos_s[:, 1],
+        pos_s[:, 2],
+        color="gray",
+        linewidth=0.8,
+        alpha=0.6,
+        linestyle="-",
     )
 
     # 3. Initial/Anchor position
@@ -65,10 +76,16 @@ def render_particle_3d_confinement(
     )
 
     ax.set_box_aspect([1, 1, 1])
-    lim = r_s * 1.05
-    ax.set_xlim([-lim, lim])
-    ax.set_ylim([-lim, lim])
-    ax.set_zlim([-lim, lim])
+
+    # Set wireframe zoom
+    all_pts = np.vstack([pos_s, x0_s.reshape(1, 3)])
+    center = np.mean(all_pts, axis=0)
+    extent = np.max(np.abs(all_pts - center)) * 1.15
+    extent = max(extent, 1e-6)
+    ax.set_xlim([center[0] - extent, center[0] + extent])
+    ax.set_ylim([center[1] - extent, center[1] + extent])
+    ax.set_zlim([center[2] - extent, center[2] + extent])
+
     ax.set_xlabel(f"$X\\ [{unit_str}]$", fontsize=8, labelpad=2)
     ax.set_ylabel(f"$Y\\ [{unit_str}]$", fontsize=8, labelpad=2)
     ax.set_zlabel(f"$Z\\ [{unit_str}]$", fontsize=8, labelpad=2)

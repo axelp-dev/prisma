@@ -33,6 +33,7 @@
 - Comprehensive test coverage in `tests/test_physics.py` and `tests/test_solver.py` for viscoelastic relaxation under static gravity.
 
 ### Changed
+- Set auto-zoom on particle's trajectory in `render_particle_3d_confinement` function on `src/stats/plotting.py`. 
 - Refactored `cli.py` to remove `--plot` option from `prisma trajectory show` command and disable plot display. 
 - Refactored `init_run` and `init_trajectory` parser initialization routines to use independent subparser instances.
 - Aligned `solve` signature across `Solver` and `RK4Overdamped` to take initial position directly from `particle.x0`.

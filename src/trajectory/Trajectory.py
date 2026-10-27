@@ -15,6 +15,15 @@ from src.utils import get_metadata
 import src.core.conventions as conv 
 from src.core.kinematics import CanonicalTwoAxis
 from src.core.physics import KinematicProfile
+from src.trajectory.generators import (
+    PROFILES, 
+    generate_random_walk, 
+    generate_clinostat_1d, 
+    generate_desynchronized_sine, 
+    generate_centrifuge_sweep, 
+    generate_constant_speed_ratio, 
+    generate_static_1g
+)
 
 
 class Trajectory: 
@@ -84,19 +93,58 @@ class Trajectory:
             np.savetxt(file, traj.T, delimiter=",")
         self.LOG.info(f"Successfully saved trajectory in {filepath} !")
 
-    def display(self): 
-        """
-        Display trasjectory with CLI output and user-friendly array
-        """
-        
-        # TODO : implement this method 
-    
-    def generate(durations_s: float, step_s: float): 
+
+    def generate(self, 
+                 durations_s: float, 
+                 step_s: float, 
+                 profile: str): 
         """
         Generate a Trajectory object using a specific profile. 
         """
+        
+        # Logging 
+        self.LOG.info(f"Generating trajectory using profile : {profile}")
+        
+        # Called asked generator function
+        match profile: 
+            case "random_walk": 
+                values = generate_random_walk(
+                    durations_s, 
+                    step_s
+                )
+            case "desynchronized_sine": 
+                values = generate_desynchronized_sine(
+                    durations_s, 
+                    step_s
+                )
+            case "constant_speed_ratio": 
+                values = generate_constant_speed_ratio(
+                    durations_s, 
+                    step_s, 
+                )
+            case "static_1g": 
+                values = generate_static_1g(
+                    durations_s, 
+                    step_s
+                )
+            case "clinostat_1d": 
+                values = generate_clinostat_1d(
+                    durations_s, 
+                    step_s
+                )
+            case "centrifuge_sweep": 
+                values = generate_centrifuge_sweep(
+                    durations_s, 
+                    step_s
+                ) 
+            case _: 
+                # Default one 
+                raise ValueError(f"Invalid trajectory profile, use : {PROFILES.keys}")
 
-        # TODO : implement this method 
+        # Unpack values
+        self.timestamp, self.theta1, self.theta2, self.omega1, self.omega2 = values 
+        self.LOG.info(f"Trajectory {profile} successfully generated !")
+
 
     def compute_kinematics(self): 
         """
@@ -104,7 +152,8 @@ class Trajectory:
         for the solver. 
         """
         g = self.get_gravity_positions()
-        omega1, omega2 = self.get_omegas()
+        if self.omega1 == None and self.omega2 == None: 
+            omega1, omega2 = self.get_omegas()
         Omega = self.process_angular_velocity(omega1, omega2)
         Omega_dot = np.gradient(Omega, self.timestamp, axis=1)
         return KinematicProfile(

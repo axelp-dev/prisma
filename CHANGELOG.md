@@ -15,6 +15,10 @@
 ## Unreleased 
 
 ### Added
+- Trajectory generators: 
+  - Define different trajectory profiles and their generator functions in `src/trajectory/generators.py` using `PROFILE` dict. 
+  - Branch `Trajectory.generate()` method on `cli.py` wrapper using `prisma trajectory generate` command. 
+  - Add a `--log-report` flag to the `generate` command which compile the PDF report next to export CSV trajectory. 
 - Branching `SimulationReport` on cli wrapper in `cli./py`. 
 - Implement simulation report in `SimulationReport.py`. 
 - Include metrics and plotting functions for simulation report in `metrics.py` and `plotting.py`. 

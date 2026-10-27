@@ -122,7 +122,7 @@ The previous chart presented the data pipeline, below are presented the physical
 │   ├── core/                # Conventions, 2-axis kinematics, physics dataclasses
 │   ├── solver/              # Numerical integration engines (Solver, RK4Overdamped)
 │   ├── trajectory/          # Trajectory loading, export, and kinematics pipeline
-│   ├── stats/          # PDF Generation (Simulation & Trajectory)
+│   ├── stats/               # PDF Generation (Simulation & Trajectory)
 │   └── utils.py             # CSV header and metadata parsers
 └── tests/                   # Pytest test suite
 ```
@@ -166,8 +166,11 @@ prisma trajectory show -i data/trajectories/traj3_biaxial_desynchro.csv --report
 #### 3.3.3 Generate motor profile (`prisma trajectory generate`)
 
 ```bash 
-# Generate a 120-second desynchronized sinusoidal trajectory
-prisma trajectory generate -o data/trajectories/traj_desynchro.csv -d 120 --dt 0.01 -m desynchronized_sine --speed 0.8
+# Generate a 120-second random walk trajectory
+prisma trajectory generate -o data/trajectories/traj_random_walk.csv -d 120 --dt 0.01 --profile random_walk
+
+# Generate a 120-second centrifugal sweep trajectory and compile associated PDF report
+prisma trajectory generate -o data/trajectories/traj_desynchro.csv -d 120 --dt 0.01 --profile centrifugal_sweep --log-report
 ```
 
 #### 3.3.4 Run Physical Numerical Simulation (`prisma run`)

@@ -51,7 +51,8 @@ src
 │   ├── report.py           # Report contract and TrajectoryReport implementation
 │   └── simulation_report.py    # SimulationReport implementation
 ├── trajectory
-│   └── Trajectory.py        # CSV import/export, profile generation, kinematic pipeline
+│   └── Trajectory.py        # CSV import/export, profile generation, kinematic 
+│   └── generators.py        # Trajectories definitions and generators
 └── utils.py                 # File header extraction and metadata parsers
 
 ```
@@ -146,7 +147,7 @@ classDiagram
     }
 
     %% ==========================================
-    %% Trajectory Module
+    %% Trajectory Module & Generators
     %% ==========================================
     class Trajectory {
         +float step_s
@@ -164,11 +165,23 @@ classDiagram
         +get_gravity_positions() ndarray
         +get_omegas() tuple
         +process_angular_velocity(omega1, omega2) ndarray
-        +generate(duration_s, step_s)
+        +generate(duration_s, step_s, profile, **params)
         +display()
     }
 
+    class GeneratorsModule {
+        <<module>>
+        +dict PROFILES
+        +generate_random_walk(duration_s, dt) tuple
+        +generate_desynchronized_sine(duration_s, step_s) tuple
+        +generate_constant_speed_ratio(duration_s, step_s, omega) tuple
+        +generate_static_1g(duration_s, step_s) tuple
+        +generate_clinostat_1d(duration_s, step_s) tuple
+        +generate_centrifuge_sweep(duration_s, step_s) tuple
+    }
+
     Trajectory *-- CanonicalTwoAxis : uses
+    Trajectory ..> GeneratorsModule : calls
     Trajectory --> KinematicProfile : produces
 
     %% ==========================================

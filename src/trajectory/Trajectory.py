@@ -37,6 +37,8 @@ class Trajectory:
         self.kin = CanonicalTwoAxis(n_axes=2)
         self.theta1 = None 
         self.theta2 = None
+        self.omega1 = None 
+        self.omega2 = None 
 
         # I/O features
         self.LOG = LOG
@@ -102,9 +104,6 @@ class Trajectory:
         Generate a Trajectory object using a specific profile. 
         """
         
-        # Logging 
-        self.LOG.info(f"Generating trajectory using profile : {profile}")
-        
         # Called asked generator function
         match profile: 
             case "random_walk": 
@@ -143,7 +142,6 @@ class Trajectory:
 
         # Unpack values
         self.timestamp, self.theta1, self.theta2, self.omega1, self.omega2 = values 
-        self.LOG.info(f"Trajectory {profile} successfully generated !")
 
 
     def compute_kinematics(self): 

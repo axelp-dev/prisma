@@ -13,6 +13,7 @@ from src.solver.solver import RK4Overdamped
 from src.stats.report import TrajectoryReport
 from src.stats.simulation_report import SimulationReport
 from src.trajectory.Trajectory import Trajectory
+from src.trajectory.generators import PROFILES
 
 # Predefined physical setups
 PRESETS = {
@@ -91,24 +92,23 @@ def init_trajectory(traj_parser: argparse.ArgumentParser):
         help="Temporal sampling step in seconds (default: 0.01).",
     )
     gen_parser.add_argument(
-        "-m",
-        "--mode",
+        "-p",
+        "--profile",
         type=str,
-        choices=["constant_speed", "desynchronized_sine"],
-        default="desynchronized_sine",
-        help="Kinematic trajectory generation profile (default: desynchronized_sine).",
-    )
-    gen_parser.add_argument(
-        "--speed",
-        type=float,
-        default=0.5,
-        help="Nominal angular speed parameter in rad/s (default: 0.5).",
+        choices=PROFILES.keys(),
+        default="random_walk",
+        help="Kinematic trajectory generation using presets profiles",
     )
     gen_parser.add_argument(
         "--desc",
         type=str,
         default="Synthetic RPM trajectory profile",
         help="Description metadata injected into CSV header.",
+    )
+    gen_parser.add_argument(
+        "--log-report",
+        action="store_true",
+        help="Auto generate side-car PDF report."
     )
 
 
@@ -276,30 +276,55 @@ def launch_trajectory_show(args, LOG: logging.Logger):
 
 def launch_trajectory_generate(args, LOG: logging.Logger):
     """Generate synthetic angular motion profiles and write them to a structured CSV file."""
-    LOG.info(f"Generating trajectory profile '{args.mode}' (duration={args.duration}s, dt={args.dt}s)")
-    t = np.arange(0.0, args.duration + args.dt, args.dt)
-
-    if args.mode == "constant_speed":
-        theta1 = (args.speed * t) % (2 * np.pi)
-        theta2 = (args.speed * 0.7 * t) % (2 * np.pi)
-    elif args.mode == "desynchronized_sine":
-        w1, w2 = args.speed, args.speed * np.sqrt(2)
-        theta1 = np.pi * np.sin(w1 * t)
-        theta2 = np.pi * np.sin(w2 * t)
-    else:
-        raise ValueError(f"Unknown trajectory generation mode: {args.mode}")
-
+    LOG.info(f"Generating trajectory profile '{args.profile}' (duration={args.duration}s, dt={args.dt}s)")
+    
+    # Init trajectory object
     traj = Trajectory(LOG=LOG)
-    traj.timestamp = t
-    traj.theta1 = theta1
-    traj.theta2 = theta2
-    traj.step_s = args.dt
-    traj.duration_s = args.duration
-    traj.description = f"{args.desc} [mode={args.mode}, speed={args.speed}]"
-    traj.generation_date = str(datetime.datetime.now())
+    
+    # Launch generation
+    traj.generate(
+        durations_s=args.duration, 
+        step_s=args.dt, 
+        profile=args.profile)
+    
+    # if args.mode == "constant_speed":
+    #     theta1 = (args.speed * t) % (2 * np.pi)
+    #     theta2 = (args.speed * 0.7 * t) % (2 * np.pi)
+    # elif args.mode == "desynchronized_sine":
+    #     w1, w2 = args.speed, args.speed * np.sqrt(2)
+    #     theta1 = np.pi * np.sin(w1 * t)
+    #     theta2 = np.pi * np.sin(w2 * t)
+    # else:
+    #     raise ValueError(f"Unknown trajectory generation mode: {args.mode}")
 
+    # traj = Trajectory(LOG=LOG)
+    # traj.timestamp = t
+    # traj.theta1 = theta1
+    # traj.theta2 = theta2
+    # traj.step_s = args.dt
+    # traj.duration_s = args.duration
+    # traj.description = f"{args.desc} [mode={args.mode}, speed={args.speed}]"
+    # traj.generation_date = str(datetime.datetime.now())
+
+    # Save trajectory in CSV file 
+    traj.description = f"{args.desc} [mode={args.profile}"
     args.output.parent.mkdir(parents=True, exist_ok=True)
     traj.to_csv(filepath=str(args.output))
+
+
+    # Generate report option 
+    if args.log_report: 
+        # Replacing output extension from .csv to .pdf
+        fp = Path(args.output)
+        fp = fp.with_suffix('')
+        fp = fp.with_suffix('.pdf')
+        LOG.info(f"Compiling and exporting 3-page PDF trajectory report to: {fp}.pdf")
+
+        # Generate report object 
+        report = TrajectoryReport.from_csv(filepath=args.output, output_path=fp, log=LOG)
+        report.show_CLI()
+        report.assemble_pdf()
+        LOG.info("PDF report successfully compiled.")
 
 
 def launch_run(args, LOG: logging.Logger):

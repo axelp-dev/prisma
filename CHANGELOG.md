@@ -45,6 +45,7 @@
 - Updated `ARCHITECTURE.md` and `README.md` to document the CLI pipeline and elasticity model.
 
 ### Fixed
+- Changing `render_mollweide_heatmap` colors in Trajectory report. 
 - Resolved unbound reference to `self.r_t[0]` in `RK4Overdamped.v_limit` by explicitly using `self.system.particle.x0`.
 - Corrected unit inconsistency in the viscoelastic damping formulation by strictly eliminating $m^*$ from the $\frac{k \tau_v}{m^*}$ velocity term.
 

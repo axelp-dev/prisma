@@ -2,6 +2,7 @@
 
 from typing import Tuple
 import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
 import numpy as np
 
 THEME = {
@@ -290,7 +291,6 @@ def render_unit_sphere_trajectory(
     )
     plt.colorbar(sc, ax=ax, shrink=0.55, pad=0.08, label="Time [s]")
 
-
 def render_mollweide_heatmap(
     lon: np.ndarray,
     lat: np.ndarray,
@@ -302,35 +302,81 @@ def render_mollweide_heatmap(
     lat_edges = np.linspace(-np.pi / 2, np.pi / 2, bins[1] + 1)
     hist, _, _ = np.histogram2d(lon, lat, bins=[lon_edges, lat_edges])
 
+    # 1. Calcul d'aire élémentaire sécurisé aux pôles
     lat_centers = 0.5 * (lat_edges[:-1] + lat_edges[1:])
-    cos_lat = np.cos(lat_centers)
-    cos_lat[cos_lat == 0.0] = 1e-6
-    area_elements = (
-        (lon_edges[1] - lon_edges[0])
-        * (lat_edges[1] - lat_edges[0])
-        * cos_lat[None, :]
-    )
-    density = hist / (np.sum(hist) * area_elements)
+    # Évite l'explosion numérique sur les pôles extrêmes
+    cos_lat = np.clip(np.cos(lat_centers), 1e-3, 1.0)
+    d_lon = lon_edges[1] - lon_edges[0]
+    d_lat = lat_edges[1] - lat_edges[0]
+    area_elements = d_lon * d_lat * cos_lat[None, :]
+
+    total_samples = np.sum(hist)
+    if total_samples > 0:
+        density = hist / (total_samples * area_elements)
+    else:
+        density = np.zeros_like(hist)
+
+    # 2. Masquage des zéros pour laisser le fond propre et visible
+    density_plot = density.T
+    density_masked = np.ma.masked_where(density_plot == 0.0, density_plot)
+
+    # 3. Écrêtage robuste (percentile 98) pour éviter l'écrasement dynamique
+    non_zero_vals = density[density > 0]
+    if len(non_zero_vals) > 0:
+        v_max = float(np.percentile(non_zero_vals, 98))
+        v_max = max(v_max, 0.16)  # Au moins le double de la valeur uniforme (~0.08)
+    else:
+        v_max = 0.16
+
+    # 4. Fond de carte neutre clair
+    ax.set_facecolor("#F8FAFC")
+    ax.grid(True, linestyle=":", alpha=0.6, color="#A0AEC0", linewidth=0.7)
 
     Lon, Lat = np.meshgrid(lon_edges, lat_edges)
-    mesh = ax.pcolormesh(Lon, Lat, density.T, cmap="magma", shading="auto")
-    ax.grid(True, linestyle="--", alpha=0.5, color="gray")
+
+    # Colormap contrastée (YlOrRd : jaune clair -> orange -> rouge vif)
+    # ou "viridis" / "plasma" sans le noir
+    cmap = plt.cm.YlOrRd.copy()
+    cmap.set_bad(color="#F8FAFC")  # Couleur des cellules vides (masquées)
+
+    # Échelle avec gamma doux (PowerNorm) pour rehausser les densités faibles
+    norm = mcolors.PowerNorm(gamma=0.6, vmin=0.0, vmax=v_max)
+
+    mesh = ax.pcolormesh(
+        Lon,
+        Lat,
+        density_masked,
+        cmap=cmap,
+        norm=norm,
+        shading="flat",
+        edgecolors="none",
+    )
+
     ax.set_title(
         r"Surface Density of $\vec{g}_{\mathrm{R2}}$ (Mollweide Projection)",
         fontsize=10,
         fontweight="bold",
-        color=THEME["primary"],
+        color=THEME.get("primary", "#1A365D"),
         pad=10,
     )
+
+    # 5. Colorbar claire
     cbar = plt.colorbar(
-        mesh, ax=ax, orientation="horizontal", shrink=0.6, pad=0.12
+        mesh,
+        ax=ax,
+        orientation="horizontal",
+        shrink=0.65,
+        pad=0.10,
+        extend="max",
     )
     cbar.set_label(
-        r"Probability Density [$sr^{-1}$] (Uniform isotropic $\approx 0.08$)",
+        r"Probability Density [$\mathrm{sr}^{-1}$] (Uniform isotropic $\approx 0.08$)",
         fontsize=8,
     )
     cbar.ax.tick_params(labelsize=7)
-
+    # Repère visuel de la valeur uniforme théorique (0.08)
+    if v_max >= 0.08:
+        cbar.ax.axvline(0.08, color="#2B6CB0", linestyle="--", linewidth=1.2)
 
 def render_motor_kinematics(metrics: dict, fig: plt.Figure) -> None:
     """Populate figure with gimbal positions, velocities, apparent gravity, and convergence."""

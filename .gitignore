@@ -16,4 +16,6 @@ __pycache__/
 *.pdf
 *.log
 /**/*.zip
-data
+data/*
+!data/trajectories/
+!data/trajectories/**

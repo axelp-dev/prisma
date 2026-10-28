@@ -45,15 +45,38 @@ class TrajectoryConfig(Config):
     input_path: str = None          # CSV pre-generated trajectory
     output_path: str = None         # Filepath to log the generated trajectory
     report_path: str = None         # Filepath for the trajectory PDFReport
+    date: str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     # Physics params 
-    durations_s: float = 60.0
+    duration_s: float = 60.0
     step_s: float = 1.0
     profile: str = "random_walk"
     desc: str = None 
 
     # Flags 
     log_report: bool = True
+
+    def __str__(self) -> str:
+        sep = "-" * 48
+        samples = (
+            int(self.duration_s / self.step_s)
+            if self.step_s and self.step_s > 0
+            else 0
+        )
+        return (
+            f"\n{sep}\n"
+            f"  PRISMA TRAJECTORY CONFIGURATION\n"
+            f"{sep}\n"
+            f"  Date        : {self.date or '(none)'}\n"
+            f"  Profile     : {self.profile}\n"
+            f"  Description : {self.desc or '(default)'}\n"
+            f"  Duration    : {self.duration_s} s\n"
+            f"  Step (dt)   : {self.step_s} s ({samples} samples)\n"
+            f"  Output CSV  : {self.output_path or '(none)'}\n"
+            f"  Report PDF  : {self.report_path or '(none)'}\n"
+            f"  Auto-report : {self.log_report}\n"
+            f"{sep}"
+        )
 
 # --- SimulationConfig ----------------------------------------------------
 
@@ -63,10 +86,10 @@ class SimulationConfig(Config):
     input_file: str
     output_file: str 
     log_report: bool = True 
-    preset: str
+    preset: str = "statolith"
     
     # Physical overrides 
-    init_pos: np.ndarray = np.array([0.0, 0.0, 0.0])
+    init_pos: np.ndarray = None
     particle_radius: float = None 
     tube_radius: float = None 
     rho: float = None 

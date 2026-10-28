@@ -24,16 +24,16 @@ from src.trajectory.generators import (
     generate_constant_speed_ratio, 
     generate_static_1g
 )
+from src.config import TrajectoryConfig
 
 
 class Trajectory: 
 
-    def __init__(self, LOG: logging):
-        # Trajectory properties
-        self.step_s = None 
-        self.duration_s = None 
-        self.description = None 
-        self.generation_date = None
+    def __init__(self, config: TrajectoryConfig):
+        # Import config
+        self.config = config
+
+        # Physics values containers
         self.kin = CanonicalTwoAxis(n_axes=2)
         self.theta1 = None 
         self.theta2 = None
@@ -41,7 +41,39 @@ class Trajectory:
         self.omega2 = None 
 
         # I/O features
-        self.LOG = LOG
+        self.LOG = config.LOG
+
+    # --------- Basic commands --------------
+
+    def generate(self):
+        """
+        Launch generation process
+        """
+        # User display 
+        self.LOG.info("Launching trajectory generation using config :")
+        print(self.config)
+
+        # Generate trajectory 
+        self._load_profile_instructions()
+        
+        # Log content into CSV file 
+        self._to_csv()
+        self.LOG.info(f"Successfully generated trajectory into {self.config.output_path} !")
+
+        # Generate PDF report if asked 
+        if self.config.log_report: 
+            # TODO: implement report generation
+            pass 
+
+
+    def show(self): 
+        """
+        Launch show process 
+        """
+        # TODO: Implement this part 
+
+        pass
+
     
     def from_csv(self, filepath: str): 
         """
@@ -62,29 +94,28 @@ class Trajectory:
 
         # Init local attributes 
         self.duration_s = self.timestamp[-1]
-        self.step_s = self.timestamp[1] - self.timestamp[0]
+        self.self.config.step_s = self.timestamp[1] - self.timestamp[0]
         metadata = get_metadata(filepath)
         self.description = metadata.get("description", "No description provided")
         self.generation_date = metadata.get("generation", "Unknown")
         self.LOG.info(f"Successfully loaded trajectory from {filepath} !")
 
-    def to_csv(self, filepath: str): 
+    def _to_csv(self): 
         """
-        Write a (3,N) Numpy trajectory into 
-        a CSV files. 
-        - export_path : CSV export filepath
+        Write a (3,N) Numpy trajectory into a CSV file using 
+        given config filepath. 
         """
         
-        with open(filepath, "w") as file: 
+        with open(self.config.output_path, "w") as file: 
             # Write header 
-            file.write(f"# description : {self.description}\n")
+            file.write(f"# {(self.config.profile).upper()}\n")
+            file.write(f"# description : {self.config.desc}\n")
             file.write("# NB : All positions are in radians and steps in seconds.\n")
-            file.write(f"# duration_s : {self.duration_s}\n")
-            file.write(f"# step_s : {self.step_s}\n")
-            file.write(f"# generation : {datetime.datetime.now()}\n")
+            file.write(f"# duration_s : {self.config.duration_s}\n")
+            file.write(f"# step_s : {self.config.step_s}\n")
+            file.write(f"# date : {self.config.date}\n")
             file.write(f"# ============================================== \n")
             file.write(f"timestamp, theta1, theta2\n")
-
 
             # Write trajectory 
             traj = np.array([
@@ -93,48 +124,45 @@ class Trajectory:
                 self.theta2
             ])
             np.savetxt(file, traj.T, delimiter=",")
-        self.LOG.info(f"Successfully saved trajectory in {filepath} !")
 
 
-    def generate(self, 
-                 durations_s: float, 
-                 step_s: float, 
-                 profile: str): 
+    def _load_profile_instructions(self): 
         """
-        Generate a Trajectory object using a specific profile. 
+        Get angles and speeds values from trajectory generators 
+        using given profile. 
         """
         
         # Called asked generator function
-        match profile: 
+        match self.config.profile: 
             case "random_walk": 
                 values = generate_random_walk(
-                    durations_s, 
-                    step_s
+                    self.config.duration_s, 
+                    self.config.step_s
                 )
             case "desynchronized_sine": 
                 values = generate_desynchronized_sine(
-                    durations_s, 
-                    step_s
+                    self.config.duration_s, 
+                    self.config.step_s
                 )
             case "constant_speed_ratio": 
                 values = generate_constant_speed_ratio(
-                    durations_s, 
-                    step_s, 
+                    self.config.duration_s, 
+                    self.config.step_s, 
                 )
             case "static_1g": 
                 values = generate_static_1g(
-                    durations_s, 
-                    step_s
+                    self.config.duration_s, 
+                    self.config.step_s
                 )
             case "clinostat_1d": 
                 values = generate_clinostat_1d(
-                    durations_s, 
-                    step_s
+                    self.config.duration_s, 
+                    self.config.step_s
                 )
             case "centrifuge_sweep": 
                 values = generate_centrifuge_sweep(
-                    durations_s, 
-                    step_s
+                    self.config.duration_s, 
+                    self.config.step_s
                 ) 
             case _: 
                 # Default one 
@@ -149,11 +177,12 @@ class Trajectory:
         Compute all simulation kinematics in order to generate a KinematicProfile
         for the solver. 
         """
-        g = self.get_gravity_positions()
+        g = self._get_gravity_positions()
         if self.omega1 == None and self.omega2 == None: 
-            omega1, omega2 = self.get_omegas()
-        Omega = self.process_angular_velocity(omega1, omega2)
+            omega1, omega2 = self._get_omegas()
+        Omega = self._process_angular_velocity(omega1, omega2)
         Omega_dot = np.gradient(Omega, self.timestamp, axis=1)
+        
         return KinematicProfile(
             timestamp=self.timestamp, 
             omega1=omega1,
@@ -165,7 +194,7 @@ class Trajectory:
             g=g
         )
 
-    def get_gravity_positions(self): 
+    def _get_gravity_positions(self): 
         """
         Process gravoity vector position using angles 
         and kinematics/conventions source files. 
@@ -175,7 +204,7 @@ class Trajectory:
         rot = self.kin.rotation(angles)
         return rot.apply(g0)
 
-    def get_omegas(self): 
+    def _get_omegas(self): 
         """
         Process omega1 and omega1 corresponding 
         to angular velocities using variation rate formula. 
@@ -187,7 +216,7 @@ class Trajectory:
         omega2 = np.gradient(self.theta2, self.timestamp)
         return omega1, omega2
 
-    def process_angular_velocity(self, omega1, omega2): 
+    def _process_angular_velocity(self, omega1, omega2): 
         """
         Process angular velocity vector in R_2 referential frame 
         (the sample one) using this formula : 

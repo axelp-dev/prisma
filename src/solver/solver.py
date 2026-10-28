@@ -39,6 +39,7 @@ class RK4Overdamped(Solver):
         dt = kin.timestamp[1] - kin.timestamp[0]
         r_t = np.zeros((N, 3))
         r_t[0] = self.system.particle.x0
+        eps = 10e-9
     
         for n in range(N - 1):
             g_n, g_next = kin.g[n], kin.g[n + 1]
@@ -55,7 +56,17 @@ class RK4Overdamped(Solver):
             k3 = self.v_limit(rn + 0.5 * dt * k2, g_mid, w_mid, dw_mid)
             k4 = self.v_limit(rn + dt * k3, g_next, w_next, dw_next)
     
-            r_t[n + 1] = rn + (dt / 6.0) * (k1 + 2.0 * k2 + 2.0 * k3 + k4)
+            r_next = rn + (dt / 6.0) * (k1 + 2.0 * k2 + 2.0 * k3 + k4)
+
+            # Bouncing clamping 
+            r_norm = np.linalg.norm(r_next)
+            if r_norm >= self.r_tube: 
+                # Radial projection 
+                r_next = (r_next / r_norm) * (self.r_tube * eps)
+
+            # Update current position 
+            r_t[n+1] = r_next
+
     
         # Calcul dynamique des grandeurs dérivées
         v_t = np.gradient(r_t, dt, axis=0)

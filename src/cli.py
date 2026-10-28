@@ -130,11 +130,16 @@ def init_run(run_parser: argparse.ArgumentParser):
         default=None,
         help="Path to save the resulting simulation trajectory CSV.",
     )
+    # io_group.add_argument(
+    #     "--report",
+    #     type=Path,
+    #     default=None,
+    #     help="Path to export a compiled 3-page PDF simulation report directly after solving.",
+    # )
     io_group.add_argument(
-        "--report",
-        type=Path,
-        default=None,
-        help="Path to export a compiled 3-page PDF simulation report directly after solving.",
+        "--log-report",
+        action="store_true",
+        help="Generate simulation side-car PDF report."
     )
 
     # --- Temporal & Numerical Setup ---
@@ -406,14 +411,18 @@ def launch_run(args, LOG: logging.Logger):
         df_out.to_csv(output_path, index=False)
 
     # 5. Direct Simulation Report Generation
-    if getattr(args, "report", None):
-        LOG.info(f"Compiling simulation PDF report to: {args.report}")
+    if args.log_report:
+        # Use args.output path 
+        fp = Path(args.output)
+        fp = fp.with_suffix('')
+        fp = fp.with_suffix('.pdf')
+        LOG.info(f"Compiling simulation PDF report to: {fp}")
         sim_report = SimulationReport(
             result=result,
             kin=kin,
             system=system,
             r_tube=params["r_tube"],
-            output_path=args.report,
+            output_path=fp,
         )
         sim_report.show_CLI()
         sim_report.assemble_pdf()

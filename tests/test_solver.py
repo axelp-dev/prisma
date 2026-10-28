@@ -12,7 +12,7 @@ import logging
 import numpy as np
 import pytest
 
-from src.core.physics import (
+from src.core.models import (
     Fluid,
     KinematicProfile,
     Particle,

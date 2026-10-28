@@ -31,7 +31,7 @@ from src.stats.plotting import (
     render_temporal_dynamics,
 )
 from src.trajectory.Trajectory import Trajectory
-from src.core.physics import KinematicProfile, PhysicalSystem, SimulationResult
+from src.core.models import KinematicProfile, PhysicalSystem, SimulationResult
 
 
 class Report(ABC):

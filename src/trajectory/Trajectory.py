@@ -14,7 +14,7 @@ import datetime
 from src.utils import get_metadata
 import src.core.conventions as conv 
 from src.core.kinematics import CanonicalTwoAxis
-from src.core.physics import KinematicProfile
+from src.core.models import KinematicProfile
 from src.trajectory.generators import (
     PROFILES, 
     generate_random_walk, 

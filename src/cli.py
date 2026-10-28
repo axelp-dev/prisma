@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from src.core.physics import Fluid, Particle, PhysicalSystem
+from src.core.models import Fluid, Particle, PhysicalSystem
 from src.solver.solver import RK4Overdamped
 from src.stats.report import TrajectoryReport
 from src.stats.simulation_report import SimulationReport

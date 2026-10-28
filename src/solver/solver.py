@@ -1,7 +1,7 @@
 
 import numpy as np 
 import logging
-from src.core.physics import PhysicalSystem, KinematicProfile, SimulationResult
+from src.core.models import PhysicalSystem, KinematicProfile, SimulationResult
 
 
 class Solver: 

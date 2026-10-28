@@ -1,4 +1,4 @@
-from src.core.physics import KinematicProfile, PhysicalSystem, SimulationResult
+from src.core.models import KinematicProfile, PhysicalSystem, SimulationResult
 from src.stats.report import Report
 
 from src.stats.metrics import (

@@ -15,6 +15,7 @@
 ## Unreleased 
 
 ### Added
+- Add bouncing effect on particule on the cell structure. Use simple deviation towards the normal from the impact point. 
 - Trajectory generators: 
   - Define different trajectory profiles and their generator functions in `src/trajectory/generators.py` using `PROFILE` dict. 
   - Branch `Trajectory.generate()` method on `cli.py` wrapper using `prisma trajectory generate` command. 

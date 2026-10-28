@@ -19,7 +19,7 @@ from src.core.models import (
     PhysicalSystem,
     SimulationResult,
 )
-from src.solver.solver import RK4Overdamped, Solver
+from src.simulation.solver import RK4Overdamped, Solver
 
 
 @pytest.fixture

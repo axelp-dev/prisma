@@ -25,6 +25,7 @@ from src.trajectory.generators import (
     generate_static_1g
 )
 from src.config import TrajectoryConfig
+from src.stats.trajectory_report import TrajectoryReport
 
 
 class Trajectory: 
@@ -32,13 +33,14 @@ class Trajectory:
     def __init__(self, config: TrajectoryConfig):
         # Import config
         self.config = config
+        self.kin = None
 
         # Physics values containers
-        self.kin = CanonicalTwoAxis(n_axes=2)
+        self.canon2axis = CanonicalTwoAxis(n_axes=2)
         self.theta1 = None 
         self.theta2 = None
         self.omega1 = None 
-        self.omega2 = None 
+        self.omega2 = None
 
         # I/O features
         self.LOG = config.LOG
@@ -62,8 +64,16 @@ class Trajectory:
 
         # Generate PDF report if asked 
         if self.config.log_report: 
-            # TODO: implement report generation
-            pass 
+            # Instanciate TrajectoryReport object
+            if self.kin == None: 
+                self.kin = self.compute_kinematics()
+            report_builder = TrajectoryReport(
+                self.config, 
+                self.kin
+            )
+            # Launch report generation 
+            report_builder.generate_report()
+
 
 
     def show(self): 
@@ -94,7 +104,7 @@ class Trajectory:
 
         # Init local attributes 
         self.duration_s = self.timestamp[-1]
-        self.self.config.step_s = self.timestamp[1] - self.timestamp[0]
+        self.config.step_s = self.timestamp[1] - self.timestamp[0]
         metadata = get_metadata(filepath)
         self.description = metadata.get("description", "No description provided")
         self.generation_date = metadata.get("generation", "Unknown")
@@ -178,15 +188,15 @@ class Trajectory:
         for the solver. 
         """
         g = self._get_gravity_positions()
-        if self.omega1 == None and self.omega2 == None: 
-            omega1, omega2 = self._get_omegas()
-        Omega = self._process_angular_velocity(omega1, omega2)
+        if self.omega1 is None or self.omega2 is None: 
+            self.omega1, self.omega2 = self._get_omegas()
+        Omega = self._process_angular_velocity(self.omega1, self.omega2)
         Omega_dot = np.gradient(Omega, self.timestamp, axis=1)
         
         return KinematicProfile(
             timestamp=self.timestamp, 
-            omega1=omega1,
-            omega2=omega2, 
+            omega1=self.omega1,
+            omega2=self.omega2, 
             theta1=self.theta1, 
             theta2=self.theta2,
             Omega=Omega, 
@@ -201,7 +211,7 @@ class Trajectory:
         """
         g0 = conv.G_LAB
         angles = np.array([self.theta1, self.theta2]).T
-        rot = self.kin.rotation(angles)
+        rot = self.canon2axis.rotation(angles)
         return rot.apply(g0)
 
     def _get_omegas(self): 

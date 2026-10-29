@@ -137,7 +137,6 @@ def main():
             # Launch generation 
             traj.generate()
 
-
         # elif args.trajectory_command == "show":
         #     LOG.debug("Launching trajectory generate command")
     # elif args.command == "run":

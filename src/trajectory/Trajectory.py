@@ -74,41 +74,88 @@ class Trajectory:
             # Launch report generation 
             report_builder.generate_report()
 
-
-
     def show(self): 
         """
         Launch show process 
         """
-        # TODO: Implement this part 
+        self.config.LOG.info(f"Generating PDF report from {self.config.input_path}...")
 
-        pass
+        # --- Import CSV file 
+        self._from_csv()
+        # Display loaded config
+        # print(self.config)
 
+        # --- Generating report
+        # Process kinematics 
+        self.kin = self.compute_kinematics()
+        # Build report 
+        report_builder = TrajectoryReport(
+            self.config, 
+            self.kin
+        )
+        report_builder.generate_report()
+
+    # --------- Public Helper --------------
     
-    def from_csv(self, filepath: str): 
+    def compute_kinematics(self): 
         """
-        Load Trajectory from CSV file. 
-        - filepath: source CSV file
+        Compute all simulation kinematics in order to generate a KinematicProfile
+        for the solver. 
         """
-        # Test file existency 
-        if not Path(filepath).exists(): 
-            self.LOG.error(f"No such file {filepath} for trajectory CSV import !")
-            raise FileNotFoundError()
+        g = self._get_gravity_positions()
+        if self.omega1 is None or self.omega2 is None: 
+            self.omega1, self.omega2 = self._get_omegas()
+        Omega = self._process_angular_velocity(self.omega1, self.omega2)
+        Omega_dot = np.gradient(Omega, self.timestamp, axis=1)
+        
+        return KinematicProfile(
+            timestamp=self.timestamp, 
+            omega1=self.omega1,
+            omega2=self.omega2, 
+            theta1=self.theta1, 
+            theta2=self.theta2,
+            Omega=Omega, 
+            Omega_dot=Omega_dot, 
+            g=g
+        )
 
-        # Extract data 
-        traj = pd.read_csv(filepath, comment="#")
+    # --------- Private helpers --------------
+
+    def _from_csv(self):
+        """
+        Load Trajectory and metadata from CSV file.
+        """
+        input_file = Path(self.config.input_path)
+        if not input_file.exists():
+            self.LOG.error(f"No such file {input_file} for trajectory CSV import !")
+            raise FileNotFoundError(f"File not found: {input_file}")
+
+        # Temporal series extraction 
+        traj = pd.read_csv(input_file, comment="#")
         np_traj = traj.to_numpy()
-        self.timestamp = (np_traj.T)[0]
-        self.theta1 = (np_traj.T)[1]
-        self.theta2 = (np_traj.T)[2]
+        self.timestamp = np_traj[:, 0]
+        self.theta1 = np_traj[:, 1]
+        self.theta2 = np_traj[:, 2]
 
-        # Init local attributes 
-        self.duration_s = self.timestamp[-1]
-        self.config.step_s = self.timestamp[1] - self.timestamp[0]
-        metadata = get_metadata(filepath)
-        self.description = metadata.get("description", "No description provided")
-        self.generation_date = metadata.get("generation", "Unknown")
-        self.LOG.info(f"Successfully loaded trajectory from {filepath} !")
+        # Erase omega values to re-process them in compute_kinematics()
+        self.omega1 = None
+        self.omega2 = None
+
+        # Get metadata
+        metadata = get_metadata(input_file)
+
+        # Get descriptions & title
+        self.config.desc = str(metadata.get("description", "No description provided"))
+        self.config.date = str(metadata.get("date", "Unknown"))
+
+        # Get config 
+        self.config.duration_s = float(metadata.get("duration_s", self.timestamp[-1]))
+        self.config.step_s = float(metadata.get("step_s", self.timestamp[1] - self.timestamp[0]))
+
+        if "profile" in metadata:
+            self.config.profile = str(metadata["profile"])
+
+        self.LOG.info(f"Successfully loaded trajectory from {input_file} !")
 
     def _to_csv(self): 
         """
@@ -118,7 +165,7 @@ class Trajectory:
         
         with open(self.config.output_path, "w") as file: 
             # Write header 
-            file.write(f"# {(self.config.profile).upper()}\n")
+            file.write(f"# profile : {self.config.profile}\n")
             file.write(f"# description : {self.config.desc}\n")
             file.write("# NB : All positions are in radians and steps in seconds.\n")
             file.write(f"# duration_s : {self.config.duration_s}\n")
@@ -134,7 +181,6 @@ class Trajectory:
                 self.theta2
             ])
             np.savetxt(file, traj.T, delimiter=",")
-
 
     def _load_profile_instructions(self): 
         """
@@ -181,29 +227,7 @@ class Trajectory:
         # Unpack values
         self.timestamp, self.theta1, self.theta2, self.omega1, self.omega2 = values 
 
-
-    def compute_kinematics(self): 
-        """
-        Compute all simulation kinematics in order to generate a KinematicProfile
-        for the solver. 
-        """
-        g = self._get_gravity_positions()
-        if self.omega1 is None or self.omega2 is None: 
-            self.omega1, self.omega2 = self._get_omegas()
-        Omega = self._process_angular_velocity(self.omega1, self.omega2)
-        Omega_dot = np.gradient(Omega, self.timestamp, axis=1)
-        
-        return KinematicProfile(
-            timestamp=self.timestamp, 
-            omega1=self.omega1,
-            omega2=self.omega2, 
-            theta1=self.theta1, 
-            theta2=self.theta2,
-            Omega=Omega, 
-            Omega_dot=Omega_dot, 
-            g=g
-        )
-
+    
     def _get_gravity_positions(self): 
         """
         Process gravoity vector position using angles 

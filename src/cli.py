@@ -21,6 +21,12 @@ def convert_to_pdf_path(fp: Path):
     new_fp = fp.with_suffix('')
     return new_fp.with_suffix('.pdf')
 
+def get_date(): 
+    """
+    Return datetime.datetime string date format. 
+    """
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
 # ==============================================================================
 # PARSER INITIALIZATION
 # ==============================================================================
@@ -69,7 +75,19 @@ def init_trajectory(traj_parser: argparse.ArgumentParser):
     )
 
     # --------- show subparser --------------
-    # TODO : Complete this part 
+    show_parser = traj_wrapper.add_parser(
+        "show", 
+        help="Generate PDF report from existing CSV trajectory."
+    )
+    # General arguments 
+    show_parser.add_argument(
+        "-i", "--input", type=str, required=True, 
+        help="CSV trajectory filepath."
+    )
+    show_parser.add_argument(
+        "-o", "--output", type=str, default=None, 
+        help="PDF report output path - default next to the input CSV."
+    )
 
 
 def init_simulation(): 
@@ -125,7 +143,7 @@ def main():
                 input_path=None, 
                 output_path=Path(args.output), 
                 report_path=convert_to_pdf_path(Path(args.output)), 
-                date=datetime.now().strftime("%Y-%m-%d %H:%M:%S"), 
+                date=get_date(), 
                 duration_s=args.duration, 
                 step_s=args.step, 
                 profile=args.profile, 
@@ -137,8 +155,25 @@ def main():
             # Launch generation 
             traj.generate()
 
-        # elif args.trajectory_command == "show":
-        #     LOG.debug("Launching trajectory generate command")
+        elif args.trajectory_command == "show":
+            # View trajectory from CV file
+            if args.output == None: 
+                output_filepath = convert_to_pdf_path(Path(args.input))
+            else: 
+                output_filepath = Path(args.output)
+            # Init config 
+            config = TrajectoryConfig(
+                LOG=LOG, 
+                input_path=args.input, 
+                output_path=None, 
+                report_path=output_filepath, 
+                date=get_date()
+            )
+
+            # Launch report building
+            traj = Trajectory(config)
+            traj.show()
+
     # elif args.command == "run":
     #     launch_run(args, logger)
     # elif args.command == "result":

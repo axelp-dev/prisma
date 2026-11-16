@@ -2,19 +2,37 @@
 
 > Describe all the changes and added/deleted/modified features in the project. 
 
-## TODO : 
+## Roadmap & Active Work
 
-- [x] Write Mathematics backend on elasticity in `MATHEMATICS.md`. 
-- [x] Implements `trajectory` command. 
-- [x] Implements logs module with PDF reports on trajectory
-- [x] Implements log module on simulation. 
-- [ ] Implement particle boundaries and bounce
+- [x] Write mathematics backend on viscoelastic Hookean damping in `MATHEMATICS.md`.
+- [x] Implement unified `TrajectoryConfig` container and decouple trajectory reporting.
+- [x] Refactor CLI around two primary subcommands: `prisma trajectory` and `prisma simulation`.
+- [x] Implement multi-page PDF generation for trajectories with Mollweide density projection.
+- [x] Implement analytical profile presets (`random_walk`, `desynchronized_sine`, `constant_speed_ratio`, `static_1g`, `clinostat_1d`, `centrifuge_sweep`).
+- [ ] Implement unified `Simulation` orchestrator class consuming `SimulationConfig`.
+
 
 ---
 
 ## Unreleased 
 
 ### Added
+- **Unified Configuration Layer (`src/config.py`)**:
+  - Introduced `Config` base class and specialized `TrajectoryConfig` and `SimulationConfig` dataclasses.
+  - Implemented human-readable terminal rendering for `TrajectoryConfig` via a customized `__str__` method.
+  - Consolidated physical presets (`statolith`, `glycerol_bead`) directly inside `src/config.py`.
+- **Streamlined Trajectory Architecture (`src/trajectory/Trajectory.py`)**:
+  - Transferred execution orchestration to `Trajectory.generate()` and `Trajectory.show()`.
+  - Added structured metadata serialization (`# profile`, `# description`, `# duration_s`, `# step_s`, `# date`) in trajectory CSV headers.
+  - Added robust CSV deserialization in `_from_csv()` synchronizing timing and metadata into the active configuration.
+- **Kinematic Presets Suite (`src/trajectory/generators.py`)**:
+  - Implemented six standard generation profiles: `random_walk`, `desynchronized_sine`, `constant_speed_ratio`, `static_1g`, `clinostat_1d`, and `centrifuge_sweep`.
+  - Integrated discrete cumulative stepping (`np.cumsum(omega) * dt`) and closed-form harmonic solutions.
+- **Reporting Inversion (`src/stats/trajectory_report.py`)**:
+  - Refactored `TrajectoryReport` to inherit from `Report(config)`.
+  - Inverted execution flow: `Trajectory` now passes its pre-computed `KinematicProfile` directly to `TrajectoryReport`.
+  - Removed deprecated `TrajectoryReport.from_csv()` factory method.
+
 - Add bouncing effect on particule on the cell structure. Use simple deviation towards the normal from the impact point. 
 - Trajectory generators: 
   - Define different trajectory profiles and their generator functions in `src/trajectory/generators.py` using `PROFILE` dict. 
@@ -38,6 +56,13 @@
 - Comprehensive test coverage in `tests/test_physics.py` and `tests/test_solver.py` for viscoelastic relaxation under static gravity.
 
 ### Changed
+- **CLI Unification (`src/cli.py`)**:
+  - Replaced legacy commands (`run`, `result`) with a clean two-level hierarchy: `prisma trajectory {generate,show}` and `prisma simulation {run,show}`.
+  - Added `-l` / `--log-report` option to automatically compile side-car PDF reports alongside CSV exports.
+  - Cleaned up subparser namespaces to avoid destination collisions (`trajectory_command`, `simulation_command`).
+- **Visual & Reporting Enhancements**:
+  - Switched Mollweide spherical projection to `PowerNorm` gamma scaling with masked zero-density elements for high visual clarity.
+  - Replaced raw LaTeX math text strings (`\mu\mathrm{m}`) with Unicode symbols (`µm`) to prevent font engine rendering errors on standard Matplotlib backends.
 - Set auto-zoom on particle's trajectory in `render_particle_3d_confinement` function on `src/stats/plotting.py`. 
 - Refactored `cli.py` to remove `--plot` option from `prisma trajectory show` command and disable plot display. 
 - Refactored `init_run` and `init_trajectory` parser initialization routines to use independent subparser instances.
@@ -49,6 +74,10 @@
 - Changing `render_mollweide_heatmap` colors in Trajectory report. 
 - Resolved unbound reference to `self.r_t[0]` in `RK4Overdamped.v_limit` by explicitly using `self.system.particle.x0`.
 - Corrected unit inconsistency in the viscoelastic damping formulation by strictly eliminating $m^*$ from the $\frac{k \tau_v}{m^*}$ velocity term.
+
+## Removed 
+- **Legacy Result Command**: Deprecated `prisma result show`; post-processing and diagnostic display are now consolidated under `prisma simulation show`.
+
 
 ---
 

@@ -1,16 +1,18 @@
 # 🦠 PRISMA
 
-> Particle in Random-positioning Integrator for Simulated Microgravity Analysis
+> **P**article in **R**andom-positioning **I**ntegrator for **S**imulated **M**icrogravity **A**nalysis
+
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
 
 ---
 
 - [🦠 PRISMA](#-prisma)
   - [1. Overview](#1-overview)
-    - [1.1 Summary](#11-summary)
+    - [1.1 Scientific Context](#11-scientific-context)
     - [1.2 Key Features](#12-key-features)
   - [2. Architecture \& Data Pipeline](#2-architecture--data-pipeline)
     - [2.1 Classes](#21-classes)
-  - [2.2 Pipeline Flow](#22-pipeline-flow)
+  - [2.2 Execution Pipeline](#22-execution-pipeline)
   - [2.3 Project Structure](#23-project-structure)
   - [3. Getting Started](#3-getting-started)
     - [3.1 Installation](#31-installation)
@@ -24,21 +26,23 @@
 
 ## 1. Overview
 
-### 1.1 Summary
+### 1.1 Scientific Context
 
-**PRISMA** models the motions of intracellular organelles such as statoliths motion inside a cell while using a biaxial *Radom Positonning Machine* to simulation altered gravity or micro-gravity. 
+**PRISMA** simulates the dynamics of microscopic intracellular inclusions (such as plant statoliths) enclosed within a fluid-filled cavity mounted on a biaxial **Random Positioning Machine (RPM)**. 
 
-The engine leverages a `RK4Stokes` solver on the motion equations using Centrifugal, Coriolis, Euler, Buoyant and Elasticity forces. Calculus and references frames are presented in the related doc file : [docs/MATHEMATICS.md](docs/MATHEMATICS.md). 
+By continuously altering the orientation of two gimbal axes, the RPM averages the laboratory gravitational vector over time, generating functional microgravity analogs. PRISMA tracks the full non-inertial equations of motion in the moving sample frame $\mathcal{R}_2$, resolving coupled gravitational, centrifugal, Euler, and viscoelastic restoring forces within an overdamped Stokes hydrodynamic regime.
+
+Detailed physical derivations and reference frame conventions are documented in [docs/MATHEMATICS.md](docs/MATHEMATICS.md).
 
 ### 1.2 Key Features
 
-- **Vectorized Biaxial Kinematics:** Full rotation matrix mappings, apparent gravity transformations, and non-inertial angular velocity/acceleration tracking in the moving frame $\mathcal{R}_2$.
-- **Overdamped Stokes Solver:** Unconditionally stable first-order integration ($\dot{\vec{r}} = \vec{v}_{\text{limit}}$) under coupled gravity, centrifugal, and Euler fictitious forces.
-- **Cytoskeletal Viscoelasticity:** Restoring Hookean coupling ($\vec{F}_{\text{elast}} = -k(\vec{r} - \vec{x}_0)$) parameterized by the elastic relaxation timescale $\tau_k = (6\pi\mu R)/k$.
-- **Microgravity Verification Metrics:** Continuous tracking of the particle Reynolds number ($Re_p$) to systematically validate the creeping-flow assumption.
-- **Dedicated CLI Pipeline:** Modular command-line tool `prisma` to configure presets, override physical parameters, and serialize results.
-- **Modular Architecture:** Decoupled layout separating physical models, trajectory import/export, and numerical solvers.
-- **PDF Report generator:** `stats` module generating PDF report for `Trajectory` and `SimulationResults` containers. 
+- **Vectorized Biaxial Kinematics:** Full rotation matrix mappings, apparent gravity transformations, and non-inertial angular velocity/acceleration tracking in frame $\mathcal{R}_2$.
+- **Analytical & Stochastic Presets:** Six kinematic generators (`random_walk`, `desynchronized_sine`, `constant_speed_ratio`, `static_1g`, `clinostat_1d`, `centrifuge_sweep`).
+- **Overdamped Stokes Solver:** Unconditionally stable numerical integration ($\dot{\vec{r}} = \vec{v}_{\text{limit}}$) under coupled apparent gravity and inertial fictitious forces.
+- **Cytoskeletal Viscoelasticity:** Hookean restoring force ($\vec{F}_{\text{elast}} = -k(\vec{r} - \vec{x}_0)$) parameterized by the elastic relaxation timescale $\tau_k = (6\pi\mu R)/k$.
+- **Creeping-Flow Verification:** Continuous evaluation of the particle Reynolds number ($Re_p < 0.1$) guaranteeing Stokes regime validity.
+- **Comprehensive Vector Reporting:** Automated generation of 3-page publication-quality PDF reports covering spherical surface coverage (Mollweide projection), motor kinematics, spectral response, and confinement dynamics.
+- **Unified Configuration Contracts:** Decoupled architecture using `TrajectoryConfig` and `SimulationConfig` dataclasses.
 
 ---
 
@@ -51,26 +55,31 @@ Here are presented the project architecture and a brief introduction on the data
 The package enforces a strict one-way dependency model:
 
 ```text
-src/core/ (conventions, kinematics, physical models)
+src/config.py (TrajectoryConfig, SimulationConfig, presets)
     ▲
     │
-src/trajectory/ (motor angle profiles, CSV parsing, KinematicProfile generation)
+src/core/ (conventions, kinematics, passive dataclasses)
     ▲
     │
-src/solver/ (RK4 integration, physical regimes, boundary enforcement)
+src/trajectory/ (Trajectory orchestrator, profile generators)
     ▲
     │
-src/cli.py (command-line orchestration, preset management, I/O)
+src/solver/ (RK4 solver, boundary clamping)
+    ▲
+    │
+src/stats/ (metrics, plotting, PDF report assemblers)
+    ▲
+    │
+src/cli.py (argparse command dispatching)
 ```
 
-## 2.2 Pipeline Flow
+## 2.2 Execution Pipeline 
 
-A simulation `run` calls all the modules independantly from the CLI wrapper in `src/cli.py` : 
-1. `Trajectory` is loaded using CSV filepath or generated.
-2. `Trajectory.compute_kinematics()` compute the associated values to the trajectory to pre-compute solver values. 
-3. `KinematicProfile` is instanciated from the preious object and the selected `Solver` compute the trajectory from the RPM trajectory stored in `Trajectory`. 
-4. A `SimulationResult` can be saved at the end of the solving process. 
-5. A `Report` wrapper to generate a PDF report of the simulation.
+A standard PRISMA workflow consists of:
+1. **Configuring execution** parameters into a `TrajectoryConfig` or `SimulationConfig`.
+2. **Generating or Loading** motor angles ($\theta_1, \theta_2$) via `Trajectory`.
+3. **Computing Kinematics** to derive $\vec{g}_{\mathcal{R}_2}(t)$, $\vec{\Omega}_{\mathcal{R}_2}(t)$, and $\dot{\vec{\Omega}}_{\mathcal{R}_2}(t)$.
+4. **Solving Dynamics** using RK4Overdamped with boundary wall confinement.Serializing Outputs to self-describing CSV files and multi-page vector PDF reports.For a deeper dive into the class hierarchy and design patterns, see docs/ARCHITECTURE.md.
 
 
 ```txt 

@@ -8,8 +8,6 @@ PRISMA Trajectory module.
 import pandas as pd
 import numpy as np
 from pathlib import Path
-import logging
-import datetime
 
 from src.utils import get_metadata
 import src.core.conventions as conv 

@@ -7,7 +7,6 @@ This document defines the software architecture, data contracts, and pipeline ex
 ## 1. Structural Overview
 
 The package enforces a strict one-way dependency model organized around 3 modules: 
-
 ```text
 src/config.py (TrajectoryConfig, SimulationConfig, physical presets)
     ▲
@@ -56,15 +55,16 @@ prisma
 │   ├── __init__.py
 │   ├── cli.py               # Top-level argparse entrypoint (prisma trajectory / simulation)
 │   ├── config.py            # Unified configurations (TrajectoryConfig, SimulationConfig)
-│   ├── utils.py             # CSV header parsers and metadata extractors
+│   ├── utils.py             # CSV header parsers, path converters, and metadata extractors
 │   ├── core/
 │   │   ├── __init__.py
 │   │   ├── conventions.py   # Frames R0, R1, R2 and laboratory gravity vectors
 │   │   ├── kinematics.py    # Canonical 2-axis gimbal rotation engine
-│   │   ├── models.py        # Passive dataclass containers (KinematicProfile, SimulationResult)
-│   │   └── physics.py       # Physical properties (Particle, Fluid, PhysicalSystem)
-│   ├── solver/
+│   │   ├── models.py        # Passive dataclass containers (KinematicProfile, SimulationResult, Particle, Fluid, PhysicalSystem)
+│   │   └── physics.py       # Physical properties and regime constants
+│   ├── simulation/
 │   │   ├── __init__.py
+│   │   ├── simulation.py    # Simulation orchestrator (run, show, CSV I/O)
 │   │   └── solver.py        # Numerical integration engine (RK4Overdamped)
 │   ├── stats/
 │   │   ├── __init__.py
@@ -76,7 +76,7 @@ prisma
 │   └── trajectory/
 │       ├── __init__.py
 │       ├── Trajectory.py    # Trajectory orchestrator (lifecycle, CSV I/O, kinematics)
-│       └── generators.py    # Presets kinematic profile algorithms
+│       └── generators.py    # Preset kinematic profile algorithms
 └── tests/                   # Pytest automated testing suite
 ```
 An extensive test harness mirrored under `tests/` ensures bidirectional validation between kinematics and physics, enforcing contract consistency across all modules.
@@ -172,7 +172,7 @@ generators.py         _from_csv() (parses metadata & angles)
 ### 4.2 Dynnamic Simulation Workflow (`Simulation`)
 
 ```text
-CLI: prisma simulation run / show
+CLI: prisma simulation launch / show
                │
                ▼
        SimulationConfig
@@ -259,6 +259,19 @@ classDiagram
         -_load_profile_instructions() void
     }
 
+    class Simulation {
+        +SimulationConfig config
+        +SimulationResult result
+        +KinematicProfile kin
+        +PhysicalSystem system
+        +run() void
+        +show(simulation_report) void
+        +from_CSV(input_file, LOG) void
+        -_load_trajectory() void
+        -_to_CSV() void
+        -_parse_header(input_file) dict
+    }
+
     class CanonicalTwoAxis {
         +int n_axes
         +rotation(angles) Rotation
@@ -293,6 +306,10 @@ classDiagram
         +KinematicProfile kin
         +PhysicalSystem system
         +generate_report() void
+        #_compute_metrics() dict
+        #_generate_plots() dict
+        #_assemble_pdf() Path
+        #_show_CLI() void
     }
 
     Report <|-- TrajectoryReport
@@ -303,4 +320,8 @@ classDiagram
     TrajectoryReport o-- TrajectoryConfig : uses
     TrajectoryReport o-- KinematicProfile : consumes
     Trajectory ..> TrajectoryReport : delegates reporting
+
+    Simulation o-- SimulationConfig : configured by
+    Simulation ..> Trajectory : loads kinematics via
+    Simulation ..> SimulationReport : delegates reporting
 ```

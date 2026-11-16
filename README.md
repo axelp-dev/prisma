@@ -17,11 +17,13 @@
   - [3. Getting Started](#3-getting-started)
     - [3.1 Installation](#31-installation)
     - [3.2 CLI Usage](#32-cli-usage)
-      - [3.2.1 Inspect and Plot Trajectories (`prisma trajectory`)](#321-inspect-and-plot-trajectories-prisma-trajectory)
-      - [3.3.3 Generate motor profile (`prisma trajectory generate`)](#333-generate-motor-profile-prisma-trajectory-generate)
-      - [3.3.4 Run Physical Numerical Simulation (`prisma run`)](#334-run-physical-numerical-simulation-prisma-run)
-      - [3.3.5 Generate report from a CSV `SimulationResult` dump (`prisma result show`)](#335-generate-report-from-a-csv-simulationresult-dump-prisma-result-show)
-    - [3.4 Running tests](#34-running-tests)
+      - [3.2.1 Trajectory module (`prisma trajectory`)](#321-trajectory-module-prisma-trajectory)
+        - [Generate a trajectory using templates (`trajectory generate`)](#generate-a-trajectory-using-templates-trajectory-generate)
+        - [Inspect an existing trajectory (`prisma trajectory show`)](#inspect-an-existing-trajectory-prisma-trajectory-show)
+      - [3.2.2 Run Physical Numerical Simulation (`prisma simulation`)](#322-run-physical-numerical-simulation-prisma-simulation)
+        - [Launch dynnamic numerical simulation](#launch-dynnamic-numerical-simulation)
+      - [Inspect an existing simulation result (show)](#inspect-an-existing-simulation-result-show)
+    - [3.3 Running tests](#33-running-tests)
 
 
 ## 1. Overview
@@ -85,7 +87,7 @@ A standard PRISMA workflow consists of:
 ```txt 
 CSV Trajectory [timestamp, theta1, theta2]
                 │
-                ▼ (Trajectory.from_csv)
+                ▼ (Trajectory._from_csv)
     Trajectory.compute_kinematics()
                 │
                 ▼
@@ -100,13 +102,10 @@ CSV Trajectory [timestamp, theta1, theta2]
          SimulationResult
                 │
                 ▼
-    ┌───────────└─────────┐
+    ┌───────────┴─────────┐
     │                     │
-    ▼                     │
-CSV Export                │
-                          │
-                          ▼
-                     PDF Export
+    ▼                     ▼
+CSV Export            PDF Export
 ```
 
 For in-depth software design and physical derivations, see:
@@ -121,18 +120,20 @@ The previous chart presented the data pipeline, below are presented the physical
 .
 ├── CHANGELOG.md             # Project release and modification history
 ├── data/
+│   ├── results/             # Simulation output CSVs and PDF reports
 │   └── trajectories/        # Biaxial RPM angle trajectories (.csv)
 ├── dev/                     # Prototyping notebooks (solvers, kinematics)
 ├── docs/                    # Mathematical formulations and architectural specs
 ├── pyproject.toml           # Project metadata, CLI entrypoints, and dependencies
 ├── README.md
 ├── src/
-│   ├── cli.py               # Command-line interface and run launcher
+│   ├── cli.py               # Command-line interface and command launcher
+│   ├── config.py            # Unified TrajectoryConfig and SimulationConfig contracts
 │   ├── core/                # Conventions, 2-axis kinematics, physics dataclasses
-│   ├── solver/              # Numerical integration engines (Solver, RK4Overdamped)
+│   ├── simulation/          # Simulation orchestrator and RK4Overdamped solver
 │   ├── trajectory/          # Trajectory loading, export, and kinematics pipeline
 │   ├── stats/               # PDF Generation (Simulation & Trajectory)
-│   └── utils.py             # CSV header and metadata parsers
+│   └── utils.py             # CSV header parsers and path utilities
 └── tests/                   # Pytest test suite
 ```
 
@@ -160,52 +161,95 @@ pip install -e .
 
 ### 3.2 CLI Usage 
 
-Below are some examples of the `prisma` command and presets config using. 
+The CLI is structured into two main command suites: trajectory and simulation.
 
-#### 3.2.1 Inspect and Plot Trajectories (`prisma trajectory`)
+#### 3.2.1 Trajectory module (`prisma trajectory`)
+
+##### Generate a trajectory using templates (`trajectory generate`)
+```bash
+prisma trajectory generate -o <output_path> [options]
+```
+
+| Option | Type | Required | Default | Description |
+| :--- | :--- | :---: | :--- | :--- |
+| `-o`, `--output` | `PATH` | **Yes** | — | Destination path for the generated trajectory CSV file. |
+| `-p`, `--profile` | `STR` | No | `random_walk` | Kinematic preset (`random_walk`, `desynchronized_sine`, `constant_speed_ratio`, `static_1g`, `clinostat_1d`, `centrifuge_sweep`). |
+| `-d`, `--duration` | `FLOAT` | No | `60.0` | Total trajectory duration in seconds. |
+| `-s`, `--step` | `FLOAT` | No | `1.0` | Discretization time step $\Delta t$ between two points in seconds. |
+| `-t`, `--description-text` | `STR` | No | `None` | Custom description metadata injected into the CSV header. |
+| `-l`, `--log-report` | `FLAG` | No | `False` | Automatically compile a 3-page side-car PDF diagnostic report alongside the CSV. |
+
+**Examples :**
+```bash
+# Generate 10-minute random walk with 100 Hz sampling and side-car PDF report
+prisma trajectory generate -o data/trajectories/random_walk_10m.csv -p random_walk -d 600 -s 0.01 -l
+
+# Generate 2D clinostat test profile
+prisma trajectory generate -o data/trajectories/clinostat_1d_10m.csv -p clinostat_1d -d 600 -s 0.01
+```
+
+##### Inspect an existing trajectory (`prisma trajectory show`)
 
 ```bash
-# Print summary metrics (residual gravity, max speeds, duration)
-prisma trajectory show -i data/trajectories/traj3_biaxial_desynchro.csv
-
-# Show CLI trajectory and export PDF report in given --report filepath
-prisma trajectory show -i data/trajectories/traj3_biaxial_desynchro.csv --report data/trajectories/traj3.pdf
+prisma trajectory show -i <input_path> [-o <report_path>]
 ```
 
-#### 3.3.3 Generate motor profile (`prisma trajectory generate`)
+| Option | Type | Required | Default | Description |
+| :--- | :--- | :---: | :--- | :--- |
+| `-i`, `--input` | `PATH` | **Yes** | — | Path to the existing trajectory CSV file. |
+| `-o`, `--output` | `PATH` | No | `<input>.pdf` | Custom destination path for the compiled 3-page PDF report. |
 
+**Example :**
 ```bash 
-# Generate a 120-second random walk trajectory
-prisma trajectory generate -o data/trajectories/traj_random_walk.csv -d 120 --dt 0.01 --profile random_walk
-
-# Generate a 120-second centrifugal sweep trajectory and compile associated PDF report
-prisma trajectory generate -o data/trajectories/traj_desynchro.csv -d 120 --dt 0.01 --profile centrifugal_sweep --log-report
+prisma trajectory show -i data/trajectories/random_walk_10m.csv
 ```
 
-#### 3.3.4 Run Physical Numerical Simulation (`prisma run`)
+#### 3.2.2 Run Physical Numerical Simulation (`prisma simulation`)
 
+##### Launch dynnamic numerical simulation 
+
+```bash
+prisma simulation launch -i <trajectory_csv> -o <result_csv> [options]
+```
+
+| Category | Option | Type | Required | Default | Description |
+| :--- | :--- | :--- | :---: | :--- | :--- |
+| **I/O** | `-i`, `--input` | `PATH` | **Yes** | — | Path to the input motor trajectory CSV file. |
+| **I/O** | `-o`, `--output` | `PATH` | No | `None` | Destination path for the resolved particle trajectory CSV file. |
+| **I/O** | `--log-report` | `FLAG` | No | `False` | Automatically compile a 3-page side-car PDF simulation report. |
+| **Time** | `-d`, `--duration` | `FLOAT` | No | `120` | Simulation duration in seconds (defaults to trajectory length). |
+| **Time** | `--dt` | `FLOAT` | No | `0.1` | Numerical integration time step in seconds. |
+| **Preset** | `-p`, `--preset` | `STR` | No | `None` | Predefined physical configuration (`glycerol_bead` or `statolith`). |
+| **Initial** | `--x0` | `FLOAT[3]` | No | `[0.0, 0.0, 0.0]` | Initial equilibrium anchor coordinates `(X, Y, Z)` in sample frame $\mathcal{R}_2$ (in meters). |
+| **Physics** | `-r`, `--radius` | `FLOAT` | No | `1.5e-3` | Inclusion radius in meters. |
+| **Physics** | `--rho` | `FLOAT` | No | `1202.0` | Particle density in $\text{kg/m}^3$. |
+| **Physics** | `--rho-f` | `FLOAT` | No | `1200.0` | Surrounding fluid density in $\text{kg/m}^3$. |
+| **Physics** | `--mu-f` | `FLOAT` | No | `1.412` | Fluid dynamic viscosity in $\text{Pa}\cdot\text{s}$. |
+| **Physics** | `-k`, `--elasticity` | `FLOAT` | No | `0.0` | Cytoskeletal actin restoring stiffness in $\text{N/m}$. |
+| **Physics** | `-rt`, `--tube-radius` | `FLOAT` | No | `0.05` | Spherical confinement cell/tube radius in meters. |
+
+**Examples :**
 ```bash 
-# Run with the calibrated macroscopic glycerol preset
-prisma run -i data/trajectories/traj3_biaxial_desynchro.csv -p glycerol_bead -o results.csv
+# Run statolith simulation with actin restoring stiffness and generate report
+prisma simulation launch -i data/trajectories/constant_speed_10m.csv -o data/results/sim_statolith.csv -p statolith -k 1e-4 --log-report
 
-# Run with the intracellular statolith preset and custom actin stiffness
-prisma run -i data/trajectories/traj3_biaxial_desynchro.csv -p statolith -k 2e-4 --x0 0.0 0.0 1e-6
-
-# Run with the intracellular statolith preset and generate a SimulationReport into given --report PDF filepath
-prisma run -i data/trajectories/traj3_biaxial_desynchro.csv --report data/results/result_PDF_traj3.pdf
+# Run macroscopic glycerol bead test without elastic anchoring
+prisma simulation launch -i data/trajectories/random_walk_10m.csv -o data/results/sim_bead.csv -p glycerol_bead --log-report
 ```
 
-#### 3.3.5 Generate report from a CSV `SimulationResult` dump (`prisma result show`)
+#### Inspect an existing simulation result (show)
 
-```bash 
-# Show Matplotlib figures from existing CSV SimulationReport dump 
-prisma result show -i <csv_dump_filepath> --plot
-
-# Generate PDF report from existing CSV SimulationReport dump 
-prisma result show -i  <csv_dump_filepath> --plot --report <exporting-pdf-filepath.pdf> 
+```bash
+prisma simulation show -i <result_csv> [-o <report_path>]
 ```
+Reads physical metadata and trajectory parameters directly from the CSV comments header to generate diagnostics and assemble the 3-page summary PDF report.
 
-### 3.4 Running tests
+| Option | Type | Required | Default | Description |
+| :--- | :--- | :---: | :--- | :--- |
+| `-i`, `--input` | `PATH` | **Yes** | — | Path to the existing simulation result CSV file. |
+| `-o`, `--output` | `PATH` | No | `<input>.pdf` | Custom destination path for the compiled 3-page PDF report. |
+
+### 3.3 Running tests
 
 A complete `pytest` suite is maintained in the `test/` module and can be launched using : 
 

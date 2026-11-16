@@ -6,6 +6,7 @@ __pycache__/
 *$py.class
 *.egg-info/
 *.egg
+*.swp
 
 # Pytest
 .pytest_cache/

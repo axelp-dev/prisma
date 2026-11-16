@@ -1,5 +1,6 @@
 from src.core.models import KinematicProfile, PhysicalSystem, SimulationResult
 from src.stats.report import Report
+from src.config import SimulationConfig
 
 from src.stats.metrics import (
     compute_confinement_stats,
@@ -26,19 +27,22 @@ class SimulationReport(Report):
     def __init__(
         self,
         result: SimulationResult,
+        config: SimulationConfig = None, 
         kin: KinematicProfile = None,
         system: PhysicalSystem = None,
         r_tube: float = 0.05,
         output_path = None
     ):
-        super().__init__(output_path=output_path)
+        super().__init__(config=config)
         self.result = result
         self.kin = kin
         self.system = system
         self.r_tube = float(r_tube)
         self.metrics: dict = {}
         self.figures: dict = {}
-
+        self.output_path = output_path
+    
+    # --- Public Methods -------------------------------------
     @classmethod
     def from_csv(
         cls,
@@ -58,7 +62,12 @@ class SimulationReport(Report):
         )
         return cls(result=result, r_tube=r_tube, output_path=output_path)
 
-    def compute_metrics(self) -> dict:
+    def generate_report(self): 
+        """PDF report generator wrapper"""
+        pass
+
+    # --- Private Methods -------------------------------------
+    def _compute_metrics(self) -> dict:
         """Compute full dynamic, confinement, spatial, and spectral metrics."""
         t = np.asarray(self.result.timestamp, dtype=float).flatten()
         dt = float(t[1] - t[0]) if len(t) > 1 else 0.01
@@ -129,10 +138,10 @@ class SimulationReport(Report):
         }
         return self.metrics
 
-    def generate_plots(self) -> dict:
+    def _generate_plots(self) -> dict:
         """Construct Matplotlib figures for the 3 simulation report pages."""
         if not self.metrics:
-            self.compute_metrics()
+            self._compute_metrics()
 
         m = self.metrics
 
@@ -235,7 +244,7 @@ class SimulationReport(Report):
         }
         return self.figures
 
-    def assemble_pdf(self) -> Path:
+    def _assemble_pdf(self) -> Path:
         """Assemble all 3 simulation report pages into a single PDF document."""
         destination = self.output_path
         if destination is None:
@@ -247,7 +256,7 @@ class SimulationReport(Report):
         out.parent.mkdir(parents=True, exist_ok=True)
 
         if not self.figures:
-            self.generate_plots()
+            self._generate_plots()
 
         with PdfPages(out) as pdf:
             pdf.savefig(self.figures["page1_summary"], dpi=250)
@@ -260,10 +269,10 @@ class SimulationReport(Report):
 
         return out
 
-    def show_CLI(self) -> None:
+    def _show_CLI(self) -> None:
         """Display formatted diagnostic metrics in the console."""
         if not self.metrics:
-            self.compute_metrics()
+            self._compute_metrics()
 
         m = self.metrics
         print("\n" + "=" * 55)

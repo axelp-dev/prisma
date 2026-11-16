@@ -40,3 +40,18 @@ def get_metadata(filepath: str | Path) -> dict:
     return params
 
 
+def convert_to_pdf_path(fp: Path): 
+    """
+    Convert a entered filepath into the same filepath 
+    with a '.pdf' extension. 
+    """
+    new_fp = fp.with_suffix('')
+    return new_fp.with_suffix('.pdf')
+
+
+def get_date(): 
+    """
+    Return datetime.datetime string date format. 
+    """
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+

@@ -96,3 +96,5 @@ class SimulationConfig(Config):
     rho_f: float = None 
     mu_f: float = None 
     k: float = None 
+
+

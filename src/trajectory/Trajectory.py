@@ -77,12 +77,6 @@ class Trajectory:
         Launch show process 
         """
         self.config.LOG.info(f"Generating PDF report from {self.config.input_path}...")
-
-        # --- Import CSV file 
-        self._from_csv()
-        # Display loaded config
-        # print(self.config)
-
         # --- Generating report
         # Process kinematics 
         self.kin = self.compute_kinematics()
@@ -100,6 +94,13 @@ class Trajectory:
         Compute all simulation kinematics in order to generate a KinematicProfile
         for the solver. 
         """
+        
+        # --- Import CSV file 
+        self._from_csv()
+        # Display loaded config
+        # print(self.config)
+
+        # --- Compute Kinematics backend
         g = self._get_gravity_positions()
         if self.omega1 is None or self.omega2 is None: 
             self.omega1, self.omega2 = self._get_omegas()

@@ -329,23 +329,15 @@ def main():
 
             # --- Launching simulation --- 
             # Loading trajectory from simulation object 
-            simulation.load_trajectory()
-            simulation.launch_run()
-            # Generating report of asked 
-            if args.log_report: 
-                simulation.report()
-
+            simulation.run()
+        
         elif args.simulation_command == "show": 
 
             # --- Generate report from existing simulation --- 
-            # Create config object 
             LOG.info(f"Loading simulation result CSV from: {args.input}")
-            sim_report = SimulationReport.from_csv(
-                filepath=args.input,
-                r_tube=args.tube_radius,
-                output_path=args.report
-            )
-            sim_report.show_CLI()
+            simulation = Simulation(None)
+            simulation.from_CSV(args.input, LOG)
+
 
         
 if __name__ == "__main__":

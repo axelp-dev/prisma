@@ -4,6 +4,7 @@ to a specific module/class.
 """
 
 from pathlib import Path
+import datetime
 
 def get_metadata(filepath: str | Path) -> dict:
     """
@@ -40,13 +41,12 @@ def get_metadata(filepath: str | Path) -> dict:
     return params
 
 
-def convert_to_pdf_path(fp: Path): 
+def convert_to_pdf_path(fp: str | Path) -> Path: 
     """
     Convert a entered filepath into the same filepath 
     with a '.pdf' extension. 
     """
-    new_fp = fp.with_suffix('')
-    return new_fp.with_suffix('.pdf')
+    return Path(fp).with_suffix(".pdf")
 
 
 def get_date(): 

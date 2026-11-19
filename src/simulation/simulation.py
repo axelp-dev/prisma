@@ -2,69 +2,63 @@
 Simulation container for all simulation operations (run, generate report, etc...)
 """
 
-import numpy as np
-from pathlib import Path
-import pandas as pd
-from dataclasses import asdict
 import ast
 import logging
+from dataclasses import asdict
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
 
 from src.config import SimulationConfig, TrajectoryConfig
-from src.trajectory.Trajectory import Trajectory
-from src.utils import *
-from src.core.models import Particle, Fluid, PhysicalSystem
+from src.core.models import (
+    Fluid,
+    KinematicProfile,
+    Particle,
+    PhysicalSystem,
+    SimulationResult,
+)
 from src.simulation.solver import RK4Overdamped
 from src.stats.simulation_report import SimulationReport
+from src.trajectory.Trajectory import Trajectory
+from src.utils import *
 
 
 class Simulation:
     def __init__(
         self,
-        LOG: logging.Logger,
         config: SimulationConfig | None = None,
-        csv_path: Path | None = None,
     ):
 
-        if config != None:
-            # Building Simulation() from SimulationConfig object
-            self.config = config
-            self.simulation_report = None
+        # Init attributes
+        self.kin: KinematicProfile | None = None
+        self.system: PhysicalSystem | None = None
+        self.result: SimulationResult | None = None
+        self.simulation_report: SimulationReport | None = None
+        self.report_path: Path | None = None
+        self.trajectory: Trajectory | None = None
 
-            # Init PDF report path if asked
-            if self.config.log_report:
-                # Store PDF report next to simulation result
-                self.report_path = convert_to_pdf_path(self.config.output_file)
-            else:
-                self.report_path = None
+        if config == None:
+            raise RuntimeError("Unable to init Simulation without SimulationConfig.")
 
-        elif csv_path != None:
-            # Init Simulation() from CSV source file
-            self.config = self.from_CSV(str(csv_path), LOG)
+        # Building Simulation() from SimulationConfig object
+        self.config = config
 
-        else:
-            raise RuntimeError(
-                "Unable to init SimulationConfig.from_CSV() without CSV path."
-            )
+        # Init PDF report path if asked
+        if self.config.log_report:
+            # Store PDF report next to simulation result
+            self.report_path = convert_to_pdf_path(self.config.output_file)
 
     # --- Public Methods -----------------------------------------------
 
     def run(self):
         """Launch simulation using RK4Overdamped solver"""
 
-        # Read trajectory from CSV file
-        self._load_trajectory()
+        # Init trajectory & kinematics from CSV file
+        self.kin, self.trajectory = self._load_trajectory()
 
-        # --- Init simulation Math config ---
-        # Initial position
-        x0_vec = np.array(self.config.init_pos, dtype=float)
-        # Particle object
-        self.particle = Particle(
-            radius=self.config.particle_radius, rho=self.config.rho, x0=x0_vec
-        )
-        # Fluid object
-        self.fluid = Fluid(rho=self.config.rho_f, mu=self.config.mu_f, k=self.config.k)
-        # PhysicalSystem for all simulation
-        self.system = PhysicalSystem(particle=self.particle, fluid=self.fluid)
+        # Init PhysicalSystem
+        self.system = self._build_physical_system()
 
         # --- Simulating ---
         self.config.LOG.info(
@@ -81,15 +75,11 @@ class Simulation:
         # Launching solving...
         self.result = solver.solve(kin=self.kin, v0=np.zeros(3))
 
-        # --- Reporting ---
-        # Extract metrics
-        max_reynolds = np.max(self.result.reynolds)
-        self.config.LOG.info(f"Simulation completed. Maximum Re_p: {max_reynolds:.3e}")
-        if max_reynolds >= 0.1:
-            self.config.LOG.warning(f"Re_p exceeded 0.1 (Re_p={max_reynolds:.3e})!")
+        # Check reynolds
+        self._log_reynold_summary(self.result)
 
         # Writing result as CSV file
-        self._to_CSV()
+        self._to_CSV(self.result)
 
         # Creating SimulationReport from CLI object
         simulation_report = SimulationReport(
@@ -103,6 +93,15 @@ class Simulation:
 
         if self.config.log_report:
             self.show(simulation_report)
+
+    def _log_reynold_summary(self, result: SimulationResult):
+        """Compute reynolds summary and display it"""
+
+        # Extract metrics
+        max_reynolds = np.max(result.reynolds)
+        self.config.LOG.info(f"Simulation completed. Maximum Re_p: {max_reynolds:.3e}")
+        if max_reynolds >= 0.1:
+            self.config.LOG.warning(f"Re_p exceeded 0.1 (Re_p={max_reynolds:.3e})!")
 
     def show(self, simulation_report: SimulationReport | None = None):
         """
@@ -123,39 +122,13 @@ class Simulation:
         report._assemble_pdf()
         self.config.LOG.info("Simulation PDF report successfully generated.")
 
-    def from_CSV(self, input_file: str, LOG: logging.Logger) -> SimulationConfig:
-        """Build SimulationResult and SimulationConfig from existing CSV file"""
-
-        if LOG == None:
-            raise RuntimeError(
-                "[ERROR] Cannot init SimulationConfig without LOG object"
-            )
-
-        # --- Build Config ---
-        metadata = self._parse_header(input_file)
-        # print(metadata)
-        config = SimulationConfig(
-            input_file=metadata["input_file"],
-            output_file=input_file,
-            log_report=metadata["log_report"],
-            preset=metadata["preset"],
-            init_pos=metadata["init_pos"],
-            particle_radius=metadata["particle_radius"],
-            tube_radius=metadata["tube_radius"],
-            rho=metadata["rho"],
-            rho_f=metadata["rho_f"],
-            mu_f=metadata["mu_f"],
-            k=metadata["k"],
-            LOG=LOG,
-        )
-        return config
-
     # --- Private Methods -----------------------------------------------
 
-    def _load_trajectory(self):
+    def _load_trajectory(self) -> tuple[KinematicProfile, Trajectory]:
         """Load CSV trajectory file"""
 
         self.config.LOG.info(f"Loading motor trajectory from: {self.config.input_file}")
+
         # --- Loading trajectory ---
         # Creating minimal TrajectoryConfig to open CSV trajectory
         traj_config = TrajectoryConfig(
@@ -166,14 +139,28 @@ class Simulation:
             date=datetime.datetime.now().strftime("%Y-%m-%d"),
         )
         trajectory = Trajectory(traj_config)
-        # Load trajectory profile
-        self.kin = trajectory.compute_kinematics()
+        kin = trajectory.compute_kinematics()
+        return kin, trajectory
 
     # TODO :
     # - Rappatrier la lecture du SimulationResult à partir du CSV
     #   ici pour ensuite lancer un report desuss
     # - Directement le faire dans from_CSV()
     # - Mettre à jour la doc dessus.
+
+    def _build_physical_system(self) -> PhysicalSystem:
+        """Build physical system from trajectory"""
+
+        # Initial position
+        x0_vec = np.array(self.config.init_pos, dtype=float)
+        # Particle object
+        particle = Particle(
+            radius=self.config.particle_radius, rho=self.config.rho, x0=x0_vec
+        )
+        # Fluid object
+        fluid = Fluid(rho=self.config.rho_f, mu=self.config.mu_f, k=self.config.k)
+
+        return PhysicalSystem(particle=particle, fluid=fluid)
 
     def _init_report(self) -> SimulationReport:
         """Init SimulationReport object from
@@ -186,7 +173,7 @@ class Simulation:
             output_path=self.report_path,
         )
 
-    def _to_CSV(self):
+    def _to_CSV(self, result: SimulationResult):
         """ "Save SimulationResult as CSV file"""
         self.config.LOG.info(f"Writing SimulationResult into {self.config.output_file}")
 
@@ -202,24 +189,24 @@ class Simulation:
             file.write("# ===============================================\n")
             file.write("#             SIMULATION RESULT\n")
             file.write("# ===============================================\n")
-            for key in dict_config.keys():
+            for key in dict_config:
                 if key != "LOG":
                     # Write metadata as '# key : value' content in CSV file
-                    content = f"# {str(key)} : {str(dict_config[key])}\n"
+                    content = f"# {key!s} : {dict_config[key]!s}\n"
                     file.write(content)
             file.write("\n")
 
         # --- Creating dataframe ---
         df_out = pd.DataFrame(
             {
-                "timestamp": self.result.timestamp,
-                "x": self.result.positions[:, 0],
-                "y": self.result.positions[:, 1],
-                "z": self.result.positions[:, 2],
-                "vx": self.result.velocities[:, 0],
-                "vy": self.result.velocities[:, 1],
-                "vz": self.result.velocities[:, 2],
-                "reynolds": self.result.reynolds,
+                "timestamp": result.timestamp,
+                "x": result.positions[:, 0],
+                "y": result.positions[:, 1],
+                "z": result.positions[:, 2],
+                "vx": result.velocities[:, 0],
+                "vy": result.velocities[:, 1],
+                "vz": result.velocities[:, 2],
+                "reynolds": result.reynolds,
             }
         )
         # Writting file
@@ -273,3 +260,61 @@ class Simulation:
                 metadata[key] = val
 
         return metadata
+
+
+@classmethod
+def from_csv(cls, csv_path: str, log: logging.Logger) -> Simulation:
+    """Build SimulationResult and SimulationConfig from existing CSV file"""
+
+    if log == None:
+        raise RuntimeError("[ERROR] Cannot init SimulationConfig without LOG object")
+
+    # --- Build Config ---
+    metadata = cls._parse_header(csv_path)
+    # print(metadata)
+    config = SimulationConfig(
+        input_file=metadata["input_file"],
+        output_file=csv_path,
+        log_report=metadata["log_report"],
+        preset=metadata["preset"],
+        init_pos=metadata["init_pos"],
+        particle_radius=metadata["particle_radius"],
+        tube_radius=metadata["tube_radius"],
+        rho=metadata["rho"],
+        rho_f=metadata["rho_f"],
+        mu_f=metadata["mu_f"],
+        k=metadata["k"],
+        LOG=log,
+    )
+    # Instanciate simulation
+    sim = Simulation(config)
+
+    # --- Build Result ---
+    # Read csv_file content
+    raw_results = pd.read_csv(csv_path)
+    timestamp = raw_results["timestamp"].to_numpy(dtype=np.float64)
+    positions = np.array(
+        [
+            raw_results["x"].to_numpy(dtype=np.float64),
+            raw_results["y"].to_numpy(dtype=np.float64),
+            raw_results["z"].to_numpy(dtype=np.float64),
+        ]
+    ).reshape((-1, 3))
+    velocities = np.array(
+        [
+            raw_results["vx"].to_numpy(dtype=np.float64),
+            raw_results["vy"].to_numpy(dtype=np.float64),
+            raw_results["vz"].to_numpy(dtype=np.float64),
+        ]
+    ).reshape((-1, 3))
+    reynolds = raw_results["reynolds"].to_numpy(dtype=np.float64)
+    # Build SimulationResult object
+    result = SimulationResult(
+        timestamp=timestamp,
+        positions=positions,
+        velocities=velocities,
+        reynolds=reynolds,
+    )
+
+    sim.result = result
+    return sim

@@ -12,10 +12,10 @@ import logging
 import sys
 from pathlib import Path
 
-from src.trajectory.Trajectory import Trajectory
+from src.config import SimulationConfig, TrajectoryConfig
+from src.simulation.simulation import Simulation, from_csv
 from src.trajectory.generators import PROFILES
-from src.config import TrajectoryConfig, SimulationConfig
-from src.simulation.simulation import Simulation
+from src.trajectory.Trajectory import Trajectory
 from src.utils import *
 
 # --------- DEFAULT --------------
@@ -346,7 +346,7 @@ def main():
                 LOG=LOG,
             )
             # Init simulation object
-            simulation = Simulation(LOG, config)
+            simulation = Simulation(config)
 
             # --- Launching simulation ---
             # Loading trajectory from simulation object
@@ -355,8 +355,8 @@ def main():
         elif args.simulation_command == "show":
             # --- Generate report from existing simulation ---
             LOG.info(f"Loading simulation result CSV from: {args.input}")
-            simulation = Simulation(LOG=LOG)
-            simulation.from_CSV(args.input, LOG)
+            simulation = from_csv(Simulation, args.input, LOG)
+            # TODO : branch Simulation::show() process
 
 
 if __name__ == "__main__":

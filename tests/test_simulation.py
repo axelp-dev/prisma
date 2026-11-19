@@ -48,16 +48,16 @@ def sim_config(mock_logger, generated_trajectory_file, tmp_path):
     )
 
 
-def test_simulation_init_no_report(mock_logger, sim_config):
+def test_simulation_init_no_report(sim_config):
     """Verify report_path stays None when log_report is False."""
-    sim = Simulation(LOG=mock_logger, config=sim_config)
+    sim = Simulation(config=sim_config)
     assert sim.report_path is None
 
 
-def test_simulation_init_with_report(mock_logger, sim_config):
+def test_simulation_init_with_report(sim_config):
     """Verify report_path mirrors output_file with .pdf extension when log_report is True."""
     sim_config.log_report = True
-    sim = Simulation(LOG=mock_logger, config=sim_config)
+    sim = Simulation(config=sim_config)
     assert sim.report_path == Path(sim_config.output_file).with_suffix(".pdf")
 
 
@@ -66,7 +66,7 @@ def test_simulation_init_with_report(mock_logger, sim_config):
 )
 def test_simulation_run_and_csv_export(mock_logger, sim_config):
     """Verify end-to-end simulation execution and self-describing CSV serialization."""
-    sim = Simulation(LOG=mock_logger, config=sim_config)
+    sim = Simulation(config=sim_config)
     sim.run()
 
     out_path = Path(sim_config.output_file)
@@ -97,7 +97,7 @@ def test_parse_header_metadata(mock_logger, sim_config, tmp_path):
     )
     csv_path.write_text(content, encoding="utf-8")
 
-    sim = Simulation(LOG=mock_logger, config=sim_config)
+    sim = Simulation(config=sim_config)
     meta = sim._parse_header(str(csv_path))
 
     assert meta["input_file"] == "data/trajectories/test.csv"

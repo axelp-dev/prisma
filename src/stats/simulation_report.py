@@ -12,11 +12,11 @@ from src.stats.plotting import (
     render_particle_3d_confinement,
     render_spectral_and_phase_analysis,
     render_temporal_dynamics,
-    THEME
+    THEME,
 )
 
 from pathlib import Path
-import numpy as np 
+import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 
@@ -27,11 +27,11 @@ class SimulationReport(Report):
     def __init__(
         self,
         result: SimulationResult,
-        config: SimulationConfig = None, 
-        kin: KinematicProfile = None,
-        system: PhysicalSystem = None,
+        config: SimulationConfig | None = None,
+        kin: KinematicProfile | None = None,
+        system: PhysicalSystem | None = None,
         r_tube: float = 0.05,
-        output_path = None
+        output_path=None,
     ):
         super().__init__(config=config)
         self.result = result
@@ -41,14 +41,11 @@ class SimulationReport(Report):
         self.metrics: dict = {}
         self.figures: dict = {}
         self.output_path = output_path
-    
+
     # --- Public Methods -------------------------------------
     @classmethod
     def from_csv(
-        cls,
-        filepath,
-        r_tube: float = 0.05,
-        output_path = None
+        cls, filepath, r_tube: float = 0.05, output_path=None
     ) -> "SimulationReport":
         """Instantiate report from saved simulation output CSV."""
         import pandas as pd
@@ -62,7 +59,7 @@ class SimulationReport(Report):
         )
         return cls(result=result, r_tube=r_tube, output_path=output_path)
 
-    def generate_report(self): 
+    def generate_report(self):
         """PDF report generator wrapper"""
         pass
 
@@ -79,18 +76,12 @@ class SimulationReport(Report):
             else self.result.positions[0]
         )
 
-        dispersion = compute_spatial_dispersion_stats(
-            self.result.positions, x0
-        )
-        confinement = compute_confinement_stats(
-            self.result.positions, self.r_tube
-        )
+        dispersion = compute_spatial_dispersion_stats(self.result.positions, x0)
+        confinement = compute_confinement_stats(self.result.positions, self.r_tube)
         reynolds = compute_reynolds_stats(self.result.reynolds)
 
         # FFT Analysis on vertical displacement z(t) and vertical apparent gravity g_z(t)
-        freqs_z, amp_z = compute_spectral_density(
-            self.result.positions[:, 2], dt
-        )
+        freqs_z, amp_z = compute_spectral_density(self.result.positions[:, 2], dt)
         if self.kin is not None:
             freqs_g, amp_g = compute_spectral_density(self.kin.g[:, 2], dt)
         else:
@@ -283,11 +274,19 @@ class SimulationReport(Report):
         print("-" * 55)
         print(f"Maximum Re_p       : {m['max_re']:.3e}")
         print(f"Mean Re_p          : {m['mean_re']:.3e}")
-        print(f"Creeping Regime    : {'VALID (< 0.1)' if not m['re_exceeded'] else 'VIOLATED (>= 0.1)'}")
+        print(
+            f"Creeping Regime    : {'VALID (< 0.1)' if not m['re_exceeded'] else 'VIOLATED (>= 0.1)'}"
+        )
         print("-" * 55)
         print(f"Net Drift          : {m['net_drift'] * m['scale']:.3f} {m['unit_str']}")
-        print(f"Path Length        : {m['total_path_length'] * m['scale']:.3f} {m['unit_str']}")
+        print(
+            f"Path Length        : {m['total_path_length'] * m['scale']:.3f} {m['unit_str']}"
+        )
         print(f"Path Tortuosity    : {m['tortuosity']:.2f}")
-        print(f"Gyration Radius Rg : {m['gyration_radius'] * m['scale']:.3f} {m['unit_str']}")
-        print(f"Min Wall Clearance : {m['min_wall_distance'] * m['scale']:.3f} {m['unit_str']}")
+        print(
+            f"Gyration Radius Rg : {m['gyration_radius'] * m['scale']:.3f} {m['unit_str']}"
+        )
+        print(
+            f"Min Wall Clearance : {m['min_wall_distance'] * m['scale']:.3f} {m['unit_str']}"
+        )
         print("=" * 55 + "\n")

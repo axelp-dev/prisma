@@ -37,7 +37,7 @@ def sim_config(mock_logger, generated_trajectory_file, tmp_path):
         input_file=str(generated_trajectory_file),
         output_file=str(tmp_path / "sim_out.csv"),
         log_report=False,
-        preset=None,
+        preset="",
         init_pos=np.array([0.0, 0.0, 0.0]),
         particle_radius=1.5e-3,
         tube_radius=0.05,
@@ -48,23 +48,25 @@ def sim_config(mock_logger, generated_trajectory_file, tmp_path):
     )
 
 
-def test_simulation_init_no_report(sim_config):
+def test_simulation_init_no_report(mock_logger, sim_config):
     """Verify report_path stays None when log_report is False."""
-    sim = Simulation(config=sim_config)
+    sim = Simulation(LOG=mock_logger, config=sim_config)
     assert sim.report_path is None
 
 
-def test_simulation_init_with_report(sim_config):
+def test_simulation_init_with_report(mock_logger, sim_config):
     """Verify report_path mirrors output_file with .pdf extension when log_report is True."""
     sim_config.log_report = True
-    sim = Simulation(config=sim_config)
+    sim = Simulation(LOG=mock_logger, config=sim_config)
     assert sim.report_path == Path(sim_config.output_file).with_suffix(".pdf")
 
 
-@pytest.mark.skip(reason="Requires calling trajectory._from_csv() inside Simulation._load_trajectory()")
-def test_simulation_run_and_csv_export(sim_config):
+@pytest.mark.skip(
+    reason="Requires calling trajectory._from_csv() inside Simulation._load_trajectory()"
+)
+def test_simulation_run_and_csv_export(mock_logger, sim_config):
     """Verify end-to-end simulation execution and self-describing CSV serialization."""
-    sim = Simulation(config=sim_config)
+    sim = Simulation(LOG=mock_logger, config=sim_config)
     sim.run()
 
     out_path = Path(sim_config.output_file)
@@ -73,7 +75,7 @@ def test_simulation_run_and_csv_export(sim_config):
     assert sim.result.positions.shape[1] == 3
 
 
-def test_parse_header_metadata(sim_config, tmp_path):
+def test_parse_header_metadata(mock_logger, sim_config, tmp_path):
     """Verify _parse_header accurately reconstructs typed metadata values."""
     csv_path = tmp_path / "header_test.csv"
     content = (
@@ -95,7 +97,7 @@ def test_parse_header_metadata(sim_config, tmp_path):
     )
     csv_path.write_text(content, encoding="utf-8")
 
-    sim = Simulation(config=sim_config)
+    sim = Simulation(LOG=mock_logger, config=sim_config)
     meta = sim._parse_header(str(csv_path))
 
     assert meta["input_file"] == "data/trajectories/test.csv"
@@ -105,7 +107,9 @@ def test_parse_header_metadata(sim_config, tmp_path):
     np.testing.assert_allclose(meta["init_pos"], [0.0, 0.0, 0.005])
 
 
-@pytest.mark.skip(reason="Pending full SimulationResult deserialization in Simulation.from_CSV()")
+@pytest.mark.skip(
+    reason="Pending full SimulationResult deserialization in Simulation.from_CSV()"
+)
 def test_simulation_from_csv_reload(mock_logger, tmp_path):
     """Verify Simulation.from_CSV reconstructs both SimulationConfig and SimulationResult."""
     pass

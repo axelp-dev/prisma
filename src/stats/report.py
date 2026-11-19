@@ -6,16 +6,17 @@ from typing import Optional, Union
 
 from src.config import Config
 
+
 class Report(ABC):
     """Abstract base contract for PRISMA reporting modules."""
 
-    def __init__(self, config: Config):
+    def __init__(self, config: Config | None = None):
         self.config = config
 
     @abstractmethod
-    def generate_report(self): 
+    def generate_report(self):
         """Generate rpdf report"""
-        pass 
+        pass
 
     @abstractmethod
     def _compute_metrics(self) -> dict:
@@ -36,3 +37,4 @@ class Report(ABC):
     def _show_CLI(self) -> None:
         """Print formatted summary metrics to standard output."""
         pass
+

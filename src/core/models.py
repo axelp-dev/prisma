@@ -1,39 +1,44 @@
 from dataclasses import dataclass
 import numpy as np
 
+
 @dataclass
-class KinematicProfile: 
+class KinematicProfile:
     """
     Dataclass container for Kinematics values
     """
+
     timestamp: np.ndarray
-    theta1 : np.ndarray
-    theta2 : np.ndarray
+    theta1: np.ndarray
+    theta2: np.ndarray
     g: np.ndarray
     omega1: np.ndarray
     omega2: np.ndarray
-    Omega : np.ndarray
-    Omega_dot : np.ndarray
+    Omega: np.ndarray
+    Omega_dot: np.ndarray
+
 
 @dataclass
 class SimulationResult:
     """
-    Simulation motion equations results container. 
+    Simulation motion equations results container.
     """
+
     timestamp: np.ndarray
-    positions: np.ndarray      # (N, 3)
-    velocities: np.ndarray     # (N, 3)
-    reynolds: np.ndarray       # (N,)
+    positions: np.ndarray  # (N, 3)
+    velocities: np.ndarray  # (N, 3)
+    reynolds: np.ndarray  # (N,)
 
 
 @dataclass(frozen=True)
 class Particle:
     """
-    Modelise simulation particle. 
+    Modelise simulation particle.
     """
-    radius: float       # m
-    rho: float          # kg/m^3
-    x0: np.ndarray      # m
+
+    radius: float  # m
+    rho: float  # kg/m^3
+    x0: np.ndarray  # m
 
     @property
     def volume(self) -> float:
@@ -47,11 +52,12 @@ class Particle:
 @dataclass(frozen=True)
 class Fluid:
     """
-    Modelize simulation Fluid properties. 
+    Modelize simulation Fluid properties.
     """
-    rho: float                  # kg/m^3
-    mu: float                   # Pa * s
-    k : float = 0.0             # kg/s 
+
+    rho: float  # kg/m^3
+    mu: float  # Pa * s
+    k: float = 0.0  # kg/s
 
 
 class PhysicalSystem:
@@ -59,30 +65,32 @@ class PhysicalSystem:
         self.particle = particle
         self.fluid = fluid
 
-        # Instanciate simulation parameters from 
+        # Instanciate simulation parameters from
         # simulation objects ones
         denom = particle.rho + 0.5 * fluid.rho
         self.beta = (particle.rho - fluid.rho) / denom
         self.gamma = particle.rho / denom
         self.tau_v = (2.0 / 9.0) * (particle.radius**2 * denom) / fluid.mu
 
-    def compute_reynolds(self, v_norm: np.ndarray | float) -> np.ndarray | float:
+    def compute_reynolds(self, v_norm: np.ndarray | float) -> np.ndarray:
         """Compute Reynolds' particle number Re_p."""
-        return (2.0 * self.particle.radius * self.fluid.rho * v_norm) / self.fluid.mu
+        v_arr = np.atleast_1d(np.asarray(v_norm, dtype=np.float64))
+        return (2.0 * self.particle.radius * self.fluid.rho * v_arr) / self.fluid.mu
 
-    def compute_tau_k(self): 
+    def compute_tau_k(self):
         """
-        Compute tau_k for elasticity recall processing during simulation. 
+        Compute tau_k for elasticity recall processing during simulation.
         tau_k = (6 * pi * mu * R) / k
         """
-        if self.fluid.k > 0.0 : 
+        if self.fluid.k > 0.0:
             return (6 * np.pi * self.fluid.mu * self.particle.radius) / self.fluid.k
-        else: 
+        else:
             return False
 
-    def display(self): 
+    def display(self):
         """
-        Display PhysicalSystem config. 
+        Display PhysicalSystem config.
         """
 
-        # TODO : Implement this method. 
+        # TODO : Implement this method.
+

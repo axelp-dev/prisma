@@ -1,5 +1,5 @@
 """
-General config definition for Trajectory and Simulation classes. 
+General config definition for Trajectory and Simulation classes.
 Used and managed by all classes, instanciated by cli.py
 """
 
@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from datetime import datetime
 import logging
 import numpy as np
-
+from pathlib import Path
 
 # --- Presets ----------------------------------------------------
 # Predefined physical setups
@@ -33,35 +33,35 @@ PRESETS = {
 # --- Main Config ----------------------------------------------------
 
 
-@dataclass 
+@dataclass
 class Config:
-    LOG: logging 
+    LOG: logging.Logger
+
 
 # --- TrajectoryConfig ----------------------------------------------------
 
-@dataclass 
-class TrajectoryConfig(Config): 
+
+@dataclass
+class TrajectoryConfig(Config):
     # Filepaths
-    input_path: str = None          # CSV pre-generated trajectory
-    output_path: str = None         # Filepath to log the generated trajectory
-    report_path: str = None         # Filepath for the trajectory PDFReport
+    input_path: Path | None = None  # CSV pre-generated trajectory
+    output_path: Path | None = None  # Filepath to log the generated trajectory
+    report_path: Path | None = None  # Filepath for the trajectory PDFReport
     date: str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    # Physics params 
+    # Physics params
     duration_s: float = 60.0
     step_s: float = 1.0
     profile: str = "random_walk"
-    desc: str = None 
+    desc: str | None = None
 
-    # Flags 
+    # Flags
     log_report: bool = True
 
     def __str__(self) -> str:
         sep = "-" * 48
         samples = (
-            int(self.duration_s / self.step_s)
-            if self.step_s and self.step_s > 0
-            else 0
+            int(self.duration_s / self.step_s) if self.step_s and self.step_s > 0 else 0
         )
         return (
             f"\n{sep}\n"
@@ -78,23 +78,24 @@ class TrajectoryConfig(Config):
             f"{sep}"
         )
 
+
 # --- SimulationConfig ----------------------------------------------------
 
-@dataclass 
-class SimulationConfig(Config): 
+
+@dataclass
+class SimulationConfig(Config):
     # Main arguments
     input_file: str
-    output_file: str 
-    log_report: bool = True 
+    output_file: str
+
+    # Physical overrides
+    init_pos: np.ndarray
+    particle_radius: float
+    tube_radius: float
+    rho: float
+    rho_f: float
+    mu_f: float
+    k: float
+
+    log_report: bool = True
     preset: str = "statolith"
-    
-    # Physical overrides 
-    init_pos: np.ndarray = None
-    particle_radius: float = None 
-    tube_radius: float = None 
-    rho: float = None 
-    rho_f: float = None 
-    mu_f: float = None 
-    k: float = None 
-
-

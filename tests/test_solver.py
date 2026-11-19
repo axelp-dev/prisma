@@ -12,14 +12,14 @@ import logging
 import numpy as np
 import pytest
 
-from src.core.physics import (
+from src.core.models import (
     Fluid,
     KinematicProfile,
     Particle,
     PhysicalSystem,
     SimulationResult,
 )
-from src.solver.solver import RK4Overdamped, Solver
+from src.simulation.solver import RK4Overdamped, Solver
 
 
 @pytest.fixture
@@ -175,3 +175,27 @@ def test_rk4_stokes_reynolds_compliance(mock_logger, static_gravity_kinematics):
     assert result.reynolds.shape == (len(static_gravity_kinematics.timestamp),)
     assert np.all(result.reynolds >= 0.0)
     assert np.all(result.reynolds < 0.1)
+
+# ==============================================================================
+# D. Spherical Boundary Confinement Tests (To be implemented)
+# ==============================================================================
+
+@pytest.mark.skip(reason="Pending spherical boundary clamping implementation in RK4Overdamped.solve()")
+def test_rk4_spherical_boundary_clamping(mock_logger, static_gravity_kinematics):
+    """Verify that a sedimenting particle cannot exit the spherical boundary ||r|| <= R_tube."""
+    r_tube = 1e-4
+    particle = Particle(radius=1.5e-3, rho=2500.0, x0=np.array([0.0, 0.0, 0.0]))
+    fluid = Fluid(rho=1000.0, mu=0.01, k=0.0)
+    system = PhysicalSystem(particle=particle, fluid=fluid)
+
+    solver = RK4Overdamped(system=system, r_tube=r_tube, LOG=mock_logger)
+    result = solver.solve(kin=static_gravity_kinematics, v0=np.zeros(3))
+
+    radial_norms = np.linalg.norm(result.positions, axis=1)
+    assert np.all(radial_norms <= r_tube)
+
+
+@pytest.mark.skip(reason="Pending tangential wall sliding verification")
+def test_rk4_wall_sliding_zero_outward_normal_velocity(mock_logger):
+    """Verify that when pressed against the wall, radial velocity vanishes while tangential motion persists."""
+    pass

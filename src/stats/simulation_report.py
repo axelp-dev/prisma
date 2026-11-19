@@ -1,6 +1,11 @@
-from src.core.physics import KinematicProfile, PhysicalSystem, SimulationResult
-from src.stats.report import Report
+from pathlib import Path
 
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.backends.backend_pdf import PdfPages
+
+from src.config import SimulationConfig
+from src.core.models import KinematicProfile, PhysicalSystem, SimulationResult
 from src.stats.metrics import (
     compute_confinement_stats,
     compute_reynolds_stats,
@@ -8,16 +13,12 @@ from src.stats.metrics import (
     compute_spectral_density,
 )
 from src.stats.plotting import (
+    THEME,
     render_particle_3d_confinement,
     render_spectral_and_phase_analysis,
     render_temporal_dynamics,
-    THEME
 )
-
-from pathlib import Path
-import numpy as np 
-import matplotlib.pyplot as plt
-from matplotlib.backends.backend_pdf import PdfPages
+from src.stats.report import Report
 
 
 class SimulationReport(Report):
@@ -26,30 +27,30 @@ class SimulationReport(Report):
     def __init__(
         self,
         result: SimulationResult,
-        kin: KinematicProfile = None,
-        system: PhysicalSystem = None,
+        config: SimulationConfig | None = None,
+        kin: KinematicProfile | None = None,
+        system: PhysicalSystem | None = None,
         r_tube: float = 0.05,
-        output_path = None
+        output_path=None,
     ):
-        super().__init__(output_path=output_path)
+        super().__init__(config=config)
         self.result = result
         self.kin = kin
         self.system = system
         self.r_tube = float(r_tube)
         self.metrics: dict = {}
         self.figures: dict = {}
+        self.output_path = output_path
 
+    # --- Public Methods -------------------------------------
     @classmethod
     def from_csv(
-        cls,
-        filepath,
-        r_tube: float = 0.05,
-        output_path = None
+        cls, filepath, r_tube: float = 0.05, output_path=None
     ) -> "SimulationReport":
         """Instantiate report from saved simulation output CSV."""
         import pandas as pd
 
-        df = pd.read_csv(filepath)
+        df = pd.read_csv(filepath, comment="#")
         result = SimulationResult(
             timestamp=df["timestamp"].to_numpy(),
             positions=df[["x", "y", "z"]].to_numpy(),
@@ -58,7 +59,11 @@ class SimulationReport(Report):
         )
         return cls(result=result, r_tube=r_tube, output_path=output_path)
 
-    def compute_metrics(self) -> dict:
+    def generate_report(self):
+        """PDF report generator wrapper"""
+
+    # --- Private Methods -------------------------------------
+    def _compute_metrics(self) -> dict:
         """Compute full dynamic, confinement, spatial, and spectral metrics."""
         t = np.asarray(self.result.timestamp, dtype=float).flatten()
         dt = float(t[1] - t[0]) if len(t) > 1 else 0.01
@@ -70,18 +75,12 @@ class SimulationReport(Report):
             else self.result.positions[0]
         )
 
-        dispersion = compute_spatial_dispersion_stats(
-            self.result.positions, x0
-        )
-        confinement = compute_confinement_stats(
-            self.result.positions, self.r_tube
-        )
+        dispersion = compute_spatial_dispersion_stats(self.result.positions, x0)
+        confinement = compute_confinement_stats(self.result.positions, self.r_tube)
         reynolds = compute_reynolds_stats(self.result.reynolds)
 
         # FFT Analysis on vertical displacement z(t) and vertical apparent gravity g_z(t)
-        freqs_z, amp_z = compute_spectral_density(
-            self.result.positions[:, 2], dt
-        )
+        freqs_z, amp_z = compute_spectral_density(self.result.positions[:, 2], dt)
         if self.kin is not None:
             freqs_g, amp_g = compute_spectral_density(self.kin.g[:, 2], dt)
         else:
@@ -129,10 +128,10 @@ class SimulationReport(Report):
         }
         return self.metrics
 
-    def generate_plots(self) -> dict:
+    def _generate_plots(self) -> dict:
         """Construct Matplotlib figures for the 3 simulation report pages."""
         if not self.metrics:
-            self.compute_metrics()
+            self._compute_metrics()
 
         m = self.metrics
 
@@ -235,7 +234,7 @@ class SimulationReport(Report):
         }
         return self.figures
 
-    def assemble_pdf(self) -> Path:
+    def _assemble_pdf(self) -> Path:
         """Assemble all 3 simulation report pages into a single PDF document."""
         destination = self.output_path
         if destination is None:
@@ -247,7 +246,7 @@ class SimulationReport(Report):
         out.parent.mkdir(parents=True, exist_ok=True)
 
         if not self.figures:
-            self.generate_plots()
+            self._generate_plots()
 
         with PdfPages(out) as pdf:
             pdf.savefig(self.figures["page1_summary"], dpi=250)
@@ -260,10 +259,10 @@ class SimulationReport(Report):
 
         return out
 
-    def show_CLI(self) -> None:
+    def _show_CLI(self) -> None:
         """Display formatted diagnostic metrics in the console."""
         if not self.metrics:
-            self.compute_metrics()
+            self._compute_metrics()
 
         m = self.metrics
         print("\n" + "=" * 55)
@@ -274,11 +273,19 @@ class SimulationReport(Report):
         print("-" * 55)
         print(f"Maximum Re_p       : {m['max_re']:.3e}")
         print(f"Mean Re_p          : {m['mean_re']:.3e}")
-        print(f"Creeping Regime    : {'VALID (< 0.1)' if not m['re_exceeded'] else 'VIOLATED (>= 0.1)'}")
+        print(
+            f"Creeping Regime    : {'VALID (< 0.1)' if not m['re_exceeded'] else 'VIOLATED (>= 0.1)'}"
+        )
         print("-" * 55)
         print(f"Net Drift          : {m['net_drift'] * m['scale']:.3f} {m['unit_str']}")
-        print(f"Path Length        : {m['total_path_length'] * m['scale']:.3f} {m['unit_str']}")
+        print(
+            f"Path Length        : {m['total_path_length'] * m['scale']:.3f} {m['unit_str']}"
+        )
         print(f"Path Tortuosity    : {m['tortuosity']:.2f}")
-        print(f"Gyration Radius Rg : {m['gyration_radius'] * m['scale']:.3f} {m['unit_str']}")
-        print(f"Min Wall Clearance : {m['min_wall_distance'] * m['scale']:.3f} {m['unit_str']}")
+        print(
+            f"Gyration Radius Rg : {m['gyration_radius'] * m['scale']:.3f} {m['unit_str']}"
+        )
+        print(
+            f"Min Wall Clearance : {m['min_wall_distance'] * m['scale']:.3f} {m['unit_str']}"
+        )
         print("=" * 55 + "\n")

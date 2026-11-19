@@ -1,0 +1,1 @@
+data/trajectories/** filter=lfs diff=lfs merge=lfs -text

@@ -1,7 +1,11 @@
-from src.core.models import KinematicProfile, PhysicalSystem, SimulationResult
-from src.stats.report import Report
-from src.config import SimulationConfig
+from pathlib import Path
 
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.backends.backend_pdf import PdfPages
+
+from src.config import SimulationConfig
+from src.core.models import KinematicProfile, PhysicalSystem, SimulationResult
 from src.stats.metrics import (
     compute_confinement_stats,
     compute_reynolds_stats,
@@ -9,16 +13,12 @@ from src.stats.metrics import (
     compute_spectral_density,
 )
 from src.stats.plotting import (
+    THEME,
     render_particle_3d_confinement,
     render_spectral_and_phase_analysis,
     render_temporal_dynamics,
-    THEME,
 )
-
-from pathlib import Path
-import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.backends.backend_pdf import PdfPages
+from src.stats.report import Report
 
 
 class SimulationReport(Report):
@@ -61,7 +61,6 @@ class SimulationReport(Report):
 
     def generate_report(self):
         """PDF report generator wrapper"""
-        pass
 
     # --- Private Methods -------------------------------------
     def _compute_metrics(self) -> dict:

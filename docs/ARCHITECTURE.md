@@ -6,7 +6,8 @@ This document defines the software architecture, data contracts, and pipeline ex
 
 ## 1. Structural Overview
 
-The package enforces a strict one-way dependency model organized around 3 modules: 
+The package enforces a strict one-way dependency model organized around 3 modules:
+
 ```text
 src/config.py (TrajectoryConfig, SimulationConfig, physical presets)
     ▲
@@ -25,6 +26,7 @@ src/stats/ (metrics extraction, matplotlib rendering, multi-page PDF assembling)
     │
 src/cli.py (lightweight argparse parser, CLI-to-Config adapter, command dispatch)
 ```
+
 - `config` acts as the transversal configuration layer across the repository. It standardizes input arguments, handles default presets, and provides clean terminal formatting without importing computational modules.
 - `core` hosts reference frame conventions ($\mathcal{R}_0, \mathcal{R}_1, \mathcal{R}_2$), SO(3) angular mappings, and passive data structures (`KinematicProfile`, `SimulationResult`, `Particle`, `Fluid`, `PhysicalSystem`).
 - `trajectory` manages synthetic profile generation, persistent CSV headers, kinematic tensor derivations, and orchestrates report compilation.
@@ -34,11 +36,11 @@ src/cli.py (lightweight argparse parser, CLI-to-Config adapter, command dispatch
 
 ---
 
-## 2. Directory tree 
+## 2. Directory tree
 
 Below is the physical layout of the `src/` directory. Each subpackage adheres to single-responsibility principles, hosting distinct domains of the simulation pipeline:
 
-```text 
+```text
 prisma
 ├── CHANGELOG.md             # Detailed version and modification history
 ├── README.md                # User guide, quickstart, and CLI manuals
@@ -79,6 +81,7 @@ prisma
 │       └── generators.py    # Preset kinematic profile algorithms
 └── tests/                   # Pytest automated testing suite
 ```
+
 An extensive test harness mirrored under `tests/` ensures bidirectional validation between kinematics and physics, enforcing contract consistency across all modules.
 
 ---
@@ -90,31 +93,32 @@ Inter-module communication relies on lightweight, immutable data containers (Pyt
 ### 3.1 Unified Configuration (`src/config.py`)
 
 Execution parameters are wrapped inside dedicated dataclasses inheriting from `Config`:
-- `TrajectoryConfig`: 
+
+- `TrajectoryConfig`:
   - `input_path`: Optional path to an existing CSV file for inspection (`show`).
   - `output_path`: Destination path for generated CSV trajectories (`generate`).
-  - `report_path`: Destination path for the 3-page PDF summary 
-  - `report.date`: Execution timestamp injected into file 
-  - `metadata.duration_s`: Total duration of the synthetic profile (in seconds).
+  - `report_path`: Destination path for the 3-page PDF summary report.
+  - `date`: Execution timestamp injected into file metadata.
+  - `duration_s`: Total duration of the synthetic profile (in seconds).
   - `step_s`: Discretization time step $\Delta t$ (in seconds).
-  - `profile`: Kinematic preset identifier (random_walk, desynchronized_sine, constant_speed_ratio, static_1g, clinostat_1d, centrifuge_sweep).
+  - `profile`: Kinematic preset identifier (`random_walk`, `desynchronized_sine`, `constant_speed_ratio`, `static_1g`, `clinostat_1d`, `centrifuge_sweep`).
   - `desc`: Custom metadata annotation saved into the CSV header.
   - `log_report`: Boolean flag enabling automatic side-car PDF compilation.
 
-- `SimulationConfig`: 
-  - `input_file`: Source CSV motor trajectory. 
+- `SimulationConfig`:
+  - `input_file`: Source CSV motor trajectory.
   - `output_file`: Destination CSV file for particle trajectory output.
   - `log_report`: Boolean flag enabling side-car PDF compilation.
-  - `preset`: Predefined physical parameter set (statolith, glycerol_bead. 
+  - `preset`: Predefined physical parameter set (`statolith`, `glycerol_bead`).
   - Overrides: `init_pos`, `particle_radius`, `tube_radius`, `rho`, `rho_f`, `mu_f`, `k`.
   
-Each configuration is used to instanciate `Trajectory` or `Simulation` object. The `Config` object is built by `src/cli.py` while parsing arguments. 
+Each configuration is used to instantiate a `Trajectory` or `Simulation` object. The `Config` object is built by `src/cli.py` while parsing arguments.
 
 ### 3.2 Containers (`src/core/models.py`)
 
-To manage data between the objects during the pipeline execution, we use Python `dataclasses`. `KinematicProfile` stores `Trajectory` physics properties and `SimulationResult` describe the particle motion after solving the `Trajectory` problem. 
+To manage data between the objects during the pipeline execution, we use Python `dataclasses`. `KinematicProfile` stores `Trajectory` physics properties and `SimulationResult` describe the particle motion after solving the `Trajectory` problem.
 
-- `KinematicProfile`: 
+- `KinematicProfile`:
   - `timestamp`: Array of time values $t \in \mathbb{R}^N$ ($N,$).
   - `theta1`, `theta2`: Inner and outer gimbal angular positions ($N,$ in radians).
   - `omega1`, `omega2`: Gimbal rotation rates ($N,$ in rad/s).
@@ -124,7 +128,7 @@ To manage data between the objects during the pipeline execution, we use Python 
 
 Produced upon completion of the numerical integration, this container packages the full dynamical history of the particle along with dimensionless validation metrics, providing a single payload for downstream analysis and 3D visualization.
 
-- `SimulationResult`: 
+- `SimulationResult`:
   - `timestamp`: Discretized time vector ($N,$).
   - `positions`: Particle Cartesian coordinates $\vec{r}(t)$ in frame $\mathcal{R}_2$ ($(N, 3)$, in meters).
   - `velocities`: Instantaneous particle velocity $\vec{v}(t)$ ($(N, 3)$, in m/s).
@@ -132,9 +136,9 @@ Produced upon completion of the numerical integration, this container packages t
 
 ---
 
-## 4. Pipeline Execution Workflows 
+## 4. Pipeline Execution Workflows
 
-Here is described the detailled execution workflow. Firt we present the `Trajectory` life-cycle and then the `Simulation` one. 
+Here is described the detailled execution workflow. Firt we present the `Trajectory` life-cycle and then the `Simulation` one.
 
 ### 4.1 Trajectory Generation & Show (`Trajectory`)
 
@@ -171,40 +175,47 @@ generators.py         _from_csv() (parses metadata & angles)
 
 ### 4.2 Dynnamic Simulation Workflow (`Simulation`)
 
+`### 4.2 Dynamic Simulation Workflow (`Simulation`)
+
 ```text
 CLI: prisma simulation launch / show
                │
                ▼
-       SimulationConfig
+       SimulationConfig (or Simulation.from_csv)
                │
                ▼
           Simulation
+     ┌─────────┴─────────┐
+     │                   │
+     ▼ (launch)          ▼ (show)
+_load_trajectory()    from_csv() (parses header & SimulationResult)
+     │                   │
+     ▼                   │
+_build_physical_system() │
+     │                   │
+     ▼                   │
+RK4Overdamped.solve()    │
+     │                   │
+     ▼                   │
+  _to_CSV()              │
+     │                   │
+     └─────────┬─────────┘
                │
-               ▼
-       Trajectory._from_csv() ──► compute_kinematics()
-               │
-               ▼
-        PhysicalSystem (Particle, Fluid, tau_v, tau_k)
-               │
-               ▼
-        RK4Overdamped.solve()
-          ├── v_limit evaluation (viscous drag + fictitious forces + elasticity)
-          ├── 4th-order Runge-Kutta step
-          └── Boundary clamping (projection on R_tube inner wall)
-               │
-               ▼
-       SimulationResult
-         ├── Persistent CSV Export (with full physical metadata in header)
-         └── SimulationReport (3-page diagnostic PDF)
+               ▼ (if log_report or show)
+       SimulationReport
+         ├── _compute_metrics() (Re_p, drift, tortuosity, FFT, confinement)
+         ├── _generate_plots() (3D confinement, dynamics, phase/FFT)
+         ├── _assemble_pdf()
+         └── _show_CLI()``text
 ```
 
 ---
 
-## 5. Class diagram 
+## 5. Class diagram
 
 The following class diagram illustrates the object-oriented structure of the framework, highlighting the relationship between the kinematics backend, the physical system configuration, and the polymorphic solver hierarchy:
 
-```mermaid 
+```mermaid
 classDiagram
     %% Configurations
     class Config {

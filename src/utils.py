@@ -1,16 +1,17 @@
 """
-Some usefull functions and tools which don't need to depend 
-to a specific module/class. 
+Some usefull functions and tools which don't need to depend
+to a specific module/class.
 """
 
-from pathlib import Path
 import datetime
+from pathlib import Path
+
 
 def get_metadata(filepath: str | Path) -> dict:
     """
     Get CSV trajectory metadata.
     - filepath: CSV filepath to parse
-    """ 
+    """
     raw_lines = []
     with open(filepath, "r", encoding="utf-8") as f:
         for line in f:
@@ -41,17 +42,16 @@ def get_metadata(filepath: str | Path) -> dict:
     return params
 
 
-def convert_to_pdf_path(fp: str | Path) -> Path: 
+def convert_to_pdf_path(fp: str | Path) -> Path:
     """
-    Convert a entered filepath into the same filepath 
-    with a '.pdf' extension. 
+    Convert a entered filepath into the same filepath
+    with a '.pdf' extension.
     """
     return Path(fp).with_suffix(".pdf")
 
 
-def get_date(): 
+def get_date():
     """
-    Return datetime.datetime string date format. 
+    Return datetime.datetime string date format.
     """
-    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
+    return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")

@@ -1,6 +1,7 @@
 # 🦠 PRISMA
 
 > **P**article in **R**andom-positioning **I**ntegrator for **S**imulated **M**icrogravity **A**nalysis
+> **Version**: v0.2.0
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
 
@@ -25,12 +26,11 @@
       - [Inspect an existing simulation result (show)](#inspect-an-existing-simulation-result-show)
     - [3.3 Running tests](#33-running-tests)
 
-
 ## 1. Overview
 
 ### 1.1 Scientific Context
 
-**PRISMA** simulates the dynamics of microscopic intracellular inclusions (such as plant statoliths) enclosed within a fluid-filled cavity mounted on a biaxial **Random Positioning Machine (RPM)**. 
+**PRISMA** simulates the dynamics of microscopic intracellular inclusions (such as plant statoliths) enclosed within a fluid-filled cavity mounted on a biaxial **Random Positioning Machine (RPM)**.
 
 By continuously altering the orientation of two gimbal axes, the RPM averages the laboratory gravitational vector over time, generating functional microgravity analogs. PRISMA tracks the full non-inertial equations of motion in the moving sample frame $\mathcal{R}_2$, resolving coupled gravitational, centrifugal, Euler, and viscoelastic restoring forces within an overdamped Stokes hydrodynamic regime.
 
@@ -50,7 +50,7 @@ Detailed physical derivations and reference frame conventions are documented in 
 
 ## 2. Architecture & Data Pipeline
 
-Here are presented the project architecture and a brief introduction on the data pipeline for a simulation run. 
+Here are presented the project architecture and a brief introduction on the data pipeline for a simulation run.
 
 ### 2.1 Classes
 
@@ -75,48 +75,58 @@ src/stats/ (metrics, plotting, PDF report assemblers)
 src/cli.py (argparse command dispatching)
 ```
 
-## 2.2 Execution Pipeline 
+## 2.2 Execution Pipeline
 
 A standard PRISMA workflow consists of:
+
 1. **Configuring execution** parameters into a `TrajectoryConfig` or `SimulationConfig`.
 2. **Generating or Loading** motor angles ($\theta_1, \theta_2$) via `Trajectory`.
 3. **Computing Kinematics** to derive $\vec{g}_{\mathcal{R}_2}(t)$, $\vec{\Omega}_{\mathcal{R}_2}(t)$, and $\dot{\vec{\Omega}}_{\mathcal{R}_2}(t)$.
-4. **Solving Dynamics** using RK4Overdamped with boundary wall confinement.Serializing Outputs to self-describing CSV files and multi-page vector PDF reports.For a deeper dive into the class hierarchy and design patterns, see docs/ARCHITECTURE.md.
+4. **Solving Dynamics** using `RK4Overdamped` with boundary wall confinement.
+5. **Serializing Outputs** to self-describing CSV files and multi-page vector PDF reports.
 
-
-```txt 
-CSV Trajectory [timestamp, theta1, theta2]
-                │
-                ▼ (Trajectory._from_csv)
-    Trajectory.compute_kinematics()
-                │
-                ▼
-         KinematicProfile
-                │
-                ├───► RK4Overdamped.solve(kin, v0)
-                │         ├── Local evaluation of v_limit(r, g, w, dw)
-                │         │     └── Hydrodynamic + Centrifugal + Euler + Elasticity
-                │         ├── 4th-order Runge-Kutta step (fixed dt)
-                │         └── Instantaneous Re_p computation
-                ▼
-         SimulationResult
-                │
-                ▼
-    ┌───────────┴─────────┐
-    │                     │
-    ▼                     ▼
-CSV Export            PDF Export
+```txt
+CLI: prisma simulation launch / show
+               │
+               ▼
+       SimulationConfig (or Simulation.from_csv)
+               │
+               ▼
+          Simulation
+     ┌─────────┴─────────┐
+     │                   │
+     ▼ (launch)          ▼ (show)
+_load_trajectory()    from_csv() (parses header & SimulationResult)
+     │                   │
+     ▼                   │
+_build_physical_system() │
+     │                   │
+     ▼                   │
+RK4Overdamped.solve()    │
+     │                   │
+     ▼                   │
+  _to_CSV()              │
+     │                   │
+     └─────────┬─────────┘
+               │
+               ▼ (if log_report or show)
+       SimulationReport
+         ├── _compute_metrics() (Re_p, drift, tortuosity, FFT, confinement)
+         ├── _generate_plots() (3D confinement, dynamics, phase/FFT)
+         ├── _assemble_pdf()
+         └── _show_CLI()
 ```
 
 For in-depth software design and physical derivations, see:
+
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): Class hierarchy, module contracts, and data containers.
 - [docs/MATHEMATICS.md](docs/MATHEMATICS.md): Derivation of non-inertial equations of motion and Stokes regime scaling.
 
-## 2.3 Project Structure 
+## 2.3 Project Structure
 
-The previous chart presented the data pipeline, below are presented the physical architecture of the project where all classes are defined. 
+The previous chart presented the data pipeline, below are presented the physical architecture of the project where all classes are defined.
 
-```txt 
+```txt
 .
 ├── CHANGELOG.md             # Project release and modification history
 ├── data/
@@ -137,35 +147,41 @@ The previous chart presented the data pipeline, below are presented the physical
 └── tests/                   # Pytest test suite
 ```
 
---- 
+---
 
-## 3. Getting Started 
+## 3. Getting Started
 
-### 3.1 Installation 
+### 3.1 Installation
 
-Start by cloning the repo: 
+Start by cloning the repo:
+
 ```bash
 git clone git@github.com:axelp-dev/prisma.git
 ```
-and then create a Python environment to install required packages: 
-```bash 
+
+and then create a Python environment to install required packages:
+
+```bash
 cd prisma                           # Move to project folder
 python3 -m venv .venv               # Create empty Python venv
 source .venv/bin/activate           # Activate venv 
 pip install -r requirements.txt     # Install required packages
 ```
-Finish by importing `pyproject.toml` config to run notebooks in `dev`: 
-```bash 
+
+Finish by importing `pyproject.toml` configuration to run notebooks in `dev`:
+
+```bash
 pip install -e .
 ```
 
-### 3.2 CLI Usage 
+### 3.2 CLI Usage
 
 The CLI is structured into two main command suites: trajectory and simulation.
 
 #### 3.2.1 Trajectory module (`prisma trajectory`)
 
 ##### Generate a trajectory using templates (`trajectory generate`)
+
 ```bash
 prisma trajectory generate -o <output_path> [options]
 ```
@@ -180,6 +196,7 @@ prisma trajectory generate -o <output_path> [options]
 | `-l`, `--log-report` | `FLAG` | No | `False` | Automatically compile a 3-page side-car PDF diagnostic report alongside the CSV. |
 
 **Examples :**
+
 ```bash
 # Generate 10-minute random walk with 100 Hz sampling and side-car PDF report
 prisma trajectory generate -o data/trajectories/random_walk_10m.csv -p random_walk -d 600 -s 0.01 -l
@@ -200,13 +217,14 @@ prisma trajectory show -i <input_path> [-o <report_path>]
 | `-o`, `--output` | `PATH` | No | `<input>.pdf` | Custom destination path for the compiled 3-page PDF report. |
 
 **Example :**
-```bash 
+
+```bash
 prisma trajectory show -i data/trajectories/random_walk_10m.csv
 ```
 
 #### 3.2.2 Run Physical Numerical Simulation (`prisma simulation`)
 
-##### Launch dynnamic numerical simulation 
+##### Launch dynnamic numerical simulation
 
 ```bash
 prisma simulation launch -i <trajectory_csv> -o <result_csv> [options]
@@ -229,7 +247,8 @@ prisma simulation launch -i <trajectory_csv> -o <result_csv> [options]
 | **Physics** | `-rt`, `--tube-radius` | `FLOAT` | No | `0.05` | Spherical confinement cell/tube radius in meters. |
 
 **Examples :**
-```bash 
+
+```bash
 # Run statolith simulation with actin restoring stiffness and generate report
 prisma simulation launch -i data/trajectories/constant_speed_10m.csv -o data/results/sim_statolith.csv -p statolith -k 1e-4 --log-report
 
@@ -242,6 +261,7 @@ prisma simulation launch -i data/trajectories/random_walk_10m.csv -o data/result
 ```bash
 prisma simulation show -i <result_csv> [-o <report_path>]
 ```
+
 Reads physical metadata and trajectory parameters directly from the CSV comments header to generate diagnostics and assemble the 3-page summary PDF report.
 
 | Option | Type | Required | Default | Description |
@@ -251,8 +271,8 @@ Reads physical metadata and trajectory parameters directly from the CSV comments
 
 ### 3.3 Running tests
 
-A complete `pytest` suite is maintained in the `test/` module and can be launched using : 
+A complete `pytest` suite is maintained in the `test/` module and can be launched using :
 
-```bash 
+```bash
 pytest -q 
 ```

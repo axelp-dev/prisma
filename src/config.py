@@ -3,11 +3,12 @@ General config definition for Trajectory and Simulation classes.
 Used and managed by all classes, instanciated by cli.py
 """
 
+import logging
 from dataclasses import dataclass
 from datetime import datetime
-import logging
-import numpy as np
 from pathlib import Path
+
+import numpy as np
 
 # --- Presets ----------------------------------------------------
 # Predefined physical setups

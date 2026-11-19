@@ -1,8 +1,9 @@
 """PRISMA Plotting module: Graphical utilities for trajectory reports."""
 
 from typing import Tuple
-import matplotlib.pyplot as plt
+
 import matplotlib.colors as mcolors
+import matplotlib.pyplot as plt
 import numpy as np
 
 THEME = {
@@ -16,7 +17,6 @@ THEME = {
     "danger": "#E53E3E",
     "success": "#38A169",
 }
-
 
 
 def render_particle_3d_confinement(
@@ -116,7 +116,9 @@ def render_temporal_dynamics(metrics: dict, fig: plt.Figure) -> None:
     ax.plot(t, pos_s[:, 2], label=r"$z(t)$", color="#38A169", linewidth=1.0)
     ax.axhline(0, color="gray", linestyle=":", linewidth=0.8)
     ax.set_ylabel(f"Position [{unit_str}]", fontsize=8, fontweight="bold")
-    ax.set_title("Coordinate Trajectories", fontsize=9, fontweight="bold", color=THEME["primary"])
+    ax.set_title(
+        "Coordinate Trajectories", fontsize=9, fontweight="bold", color=THEME["primary"]
+    )
     ax.legend(frameon=True, facecolor="white", ncol=3, fontsize=8)
 
     # 2. Velocity components
@@ -127,7 +129,9 @@ def render_temporal_dynamics(metrics: dict, fig: plt.Figure) -> None:
     ax.plot(t, vel_s[:, 1], label=r"$v_y(t)$", color="#DD6B20", linewidth=1.0)
     ax.plot(t, vel_s[:, 2], label=r"$v_z(t)$", color="#38A169", linewidth=1.0)
     ax.set_ylabel(f"Velocity [{unit_str}/s]", fontsize=8, fontweight="bold")
-    ax.set_title("Hydrodynamic Velocity", fontsize=9, fontweight="bold", color=THEME["primary"])
+    ax.set_title(
+        "Hydrodynamic Velocity", fontsize=9, fontweight="bold", color=THEME["primary"]
+    )
     ax.legend(frameon=True, facecolor="white", ncol=3, fontsize=8)
 
     # 3. Radial distance vs confinement limit
@@ -135,22 +139,46 @@ def render_temporal_dynamics(metrics: dict, fig: plt.Figure) -> None:
     apply_axes_styling(ax)
     r_dist_s = metrics["radial_distances"] * scale
     r_tube_s = metrics["r_tube"] * scale
-    ax.plot(t, r_dist_s, color=THEME["secondary"], linewidth=1.2, label=r"$\|\vec{r}(t)\|$")
-    ax.axhline(r_tube_s, color=THEME["danger"], linestyle="--", linewidth=1.2, label=r"Boundary $R_{\mathrm{tube}}$")
+    ax.plot(
+        t, r_dist_s, color=THEME["secondary"], linewidth=1.2, label=r"$\|\vec{r}(t)\|$"
+    )
+    ax.axhline(
+        r_tube_s,
+        color=THEME["danger"],
+        linestyle="--",
+        linewidth=1.2,
+        label=r"Boundary $R_{\mathrm{tube}}$",
+    )
     ax.set_xlabel("Time [s]", fontsize=8, fontweight="bold")
     ax.set_ylabel(f"Distance [{unit_str}]", fontsize=8, fontweight="bold")
-    ax.set_title("Cell/Tube Confinement Proximity", fontsize=9, fontweight="bold", color=THEME["primary"])
+    ax.set_title(
+        "Cell/Tube Confinement Proximity",
+        fontsize=9,
+        fontweight="bold",
+        color=THEME["primary"],
+    )
     ax.legend(frameon=True, facecolor="white", fontsize=8)
 
     # 4. Instantaneous Reynolds number series
     ax = axs[1, 1]
     apply_axes_styling(ax)
     ax.plot(t, metrics["reynolds"], color="#4A5568", linewidth=1.1, label=r"$Re_p(t)$")
-    ax.axhline(0.1, color=THEME["danger"], linestyle="--", linewidth=1.2, label=r"Stokes limit $Re_p = 0.1$")
+    ax.axhline(
+        0.1,
+        color=THEME["danger"],
+        linestyle="--",
+        linewidth=1.2,
+        label=r"Stokes limit $Re_p = 0.1$",
+    )
     ax.set_yscale("log")
     ax.set_xlabel("Time [s]", fontsize=8, fontweight="bold")
     ax.set_ylabel(r"$Re_p$ [$\log_{10}$]", fontsize=8, fontweight="bold")
-    ax.set_title("Particle Reynolds Number History", fontsize=9, fontweight="bold", color=THEME["primary"])
+    ax.set_title(
+        "Particle Reynolds Number History",
+        fontsize=9,
+        fontweight="bold",
+        color=THEME["primary"],
+    )
     ax.legend(frameon=True, facecolor="white", fontsize=8)
 
     fig.tight_layout()
@@ -190,7 +218,9 @@ def render_spectral_and_phase_analysis(metrics: dict, fig: plt.Figure) -> None:
     ax.set_xlim([0, min(10.0, np.max(metrics["fft_freqs_g"]))])
     ax.set_xlabel("Frequency [Hz]", fontsize=8, fontweight="bold")
     ax.set_ylabel("Amplitude", fontsize=8, fontweight="bold")
-    ax.set_title("Frequency Spectra (FFT)", fontsize=9, fontweight="bold", color=THEME["primary"])
+    ax.set_title(
+        "Frequency Spectra (FFT)", fontsize=9, fontweight="bold", color=THEME["primary"]
+    )
     ax.legend(frameon=True, facecolor="white", fontsize=7.5)
 
     # 2. Phase Portrait (z vs v_z)
@@ -200,8 +230,15 @@ def render_spectral_and_phase_analysis(metrics: dict, fig: plt.Figure) -> None:
     vz_s = metrics["velocities"][:, 2] * scale
     ax.plot(z_s, vz_s, color=THEME["primary"], linewidth=0.6, alpha=0.8)
     ax.set_xlabel(f"Vertical Position $z$ [{unit_str}]", fontsize=8, fontweight="bold")
-    ax.set_ylabel(f"Vertical Velocity $v_z$ [{unit_str}/s]", fontsize=8, fontweight="bold")
-    ax.set_title("Phase Portrait ($z$ vs $v_z$)", fontsize=9, fontweight="bold", color=THEME["primary"])
+    ax.set_ylabel(
+        f"Vertical Velocity $v_z$ [{unit_str}/s]", fontsize=8, fontweight="bold"
+    )
+    ax.set_title(
+        "Phase Portrait ($z$ vs $v_z$)",
+        fontsize=9,
+        fontweight="bold",
+        color=THEME["primary"],
+    )
 
     # 3. Radial distance histogram
     ax = axs[1, 0]
@@ -217,25 +254,45 @@ def render_spectral_and_phase_analysis(metrics: dict, fig: plt.Figure) -> None:
         linewidth=0.5,
         alpha=0.75,
     )
-    ax.axvline(r_tube_s, color=THEME["danger"], linestyle="--", linewidth=1.2, label=r"Boundary $R_{\mathrm{tube}}$")
+    ax.axvline(
+        r_tube_s,
+        color=THEME["danger"],
+        linestyle="--",
+        linewidth=1.2,
+        label=r"Boundary $R_{\mathrm{tube}}$",
+    )
     ax.set_xlabel(f"Radial Distance $r$ [{unit_str}]", fontsize=8, fontweight="bold")
     ax.set_ylabel("Probability Density", fontsize=8, fontweight="bold")
-    ax.set_title("Radial Distribution Density", fontsize=9, fontweight="bold", color=THEME["primary"])
+    ax.set_title(
+        "Radial Distribution Density",
+        fontsize=9,
+        fontweight="bold",
+        color=THEME["primary"],
+    )
     ax.legend(frameon=True, facecolor="white", fontsize=8)
 
     # 4. Orthogonal Transverse Orbit (x vs y)
     ax = axs[1, 1]
     apply_axes_styling(ax)
     pos_s = metrics["positions"] * scale
-    ax.plot(pos_s[:, 0], pos_s[:, 1], color=THEME["secondary"], linewidth=0.8, alpha=0.7)
-    circle = plt.Circle((0, 0), r_tube_s, color="#A0AEC0", fill=False, linestyle="--", linewidth=1.0)
+    ax.plot(
+        pos_s[:, 0], pos_s[:, 1], color=THEME["secondary"], linewidth=0.8, alpha=0.7
+    )
+    circle = plt.Circle(
+        (0, 0), r_tube_s, color="#A0AEC0", fill=False, linestyle="--", linewidth=1.0
+    )
     ax.add_patch(circle)
     ax.set_aspect("equal", "box")
     ax.set_xlim([-r_tube_s * 1.1, r_tube_s * 1.1])
     ax.set_ylim([-r_tube_s * 1.1, r_tube_s * 1.1])
     ax.set_xlabel(f"$x$ [{unit_str}]", fontsize=8, fontweight="bold")
     ax.set_ylabel(f"$y$ [{unit_str}]", fontsize=8, fontweight="bold")
-    ax.set_title("Transverse Orbit ($x, y$)", fontsize=9, fontweight="bold", color=THEME["primary"])
+    ax.set_title(
+        "Transverse Orbit ($x, y$)",
+        fontsize=9,
+        fontweight="bold",
+        color=THEME["primary"],
+    )
 
     fig.tight_layout()
 
@@ -290,6 +347,7 @@ def render_unit_sphere_trajectory(
         pad=8,
     )
     plt.colorbar(sc, ax=ax, shrink=0.55, pad=0.08, label="Time [s]")
+
 
 def render_mollweide_heatmap(
     lon: np.ndarray,
@@ -378,6 +436,7 @@ def render_mollweide_heatmap(
     if v_max >= 0.08:
         cbar.ax.axvline(0.08, color="#2B6CB0", linestyle="--", linewidth=1.2)
 
+
 def render_motor_kinematics(metrics: dict, fig: plt.Figure) -> None:
     """Populate figure with gimbal positions, velocities, apparent gravity, and convergence."""
     axs = fig.subplots(2, 2)
@@ -443,15 +502,9 @@ def render_motor_kinematics(metrics: dict, fig: plt.Figure) -> None:
     # 3. Apparent gravity components
     ax = axs[1, 0]
     apply_axes_styling(ax)
-    ax.plot(
-        t, metrics["g"][:, 0], label=r"$g_x$", color="#3182CE", linewidth=1.0
-    )
-    ax.plot(
-        t, metrics["g"][:, 1], label=r"$g_y$", color="#DD6B20", linewidth=1.0
-    )
-    ax.plot(
-        t, metrics["g"][:, 2], label=r"$g_z$", color="#38A169", linewidth=1.0
-    )
+    ax.plot(t, metrics["g"][:, 0], label=r"$g_x$", color="#3182CE", linewidth=1.0)
+    ax.plot(t, metrics["g"][:, 1], label=r"$g_y$", color="#DD6B20", linewidth=1.0)
+    ax.plot(t, metrics["g"][:, 2], label=r"$g_z$", color="#38A169", linewidth=1.0)
     ax.axhline(0.0, color="gray", linestyle=":", linewidth=0.8)
     ax.set_xlabel("Time [s]", fontsize=8, fontweight="bold")
     ax.set_ylabel(r"$g_{\mathrm{R2}}\ [\mathrm{m/s^2}]$", fontsize=8)
@@ -497,3 +550,4 @@ def render_motor_kinematics(metrics: dict, fig: plt.Figure) -> None:
         color=THEME["primary"],
     )
     ax.legend(frameon=True, facecolor="white", fontsize=8)
+

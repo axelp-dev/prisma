@@ -4,17 +4,26 @@
 
 ## Roadmap & Active Work
 
-- [x] Write mathematics backend on viscoelastic Hookean damping in `MATHEMATICS.md`.
-- [x] Implement unified `TrajectoryConfig` container and decouple trajectory reporting.
-- [x] Refactor CLI around two primary subcommands: `prisma trajectory` and `prisma simulation`.
-- [x] Implement multi-page PDF generation for trajectories with Mollweide density projection.
-- [x] Implement analytical profile presets (`random_walk`, `desynchronized_sine`, `constant_speed_ratio`, `static_1g`, `clinostat_1d`, `centrifuge_sweep`).
-- [x] Implement unified `Simulation` orchestrator lifecycle (`launch` & `show`) consuming `SimulationConfig`.
-- [ ] Implement inelastic wall boundary condition (geometric clamping and normal velocity suppression) in RK4 solver.
+[ ] Fix trajectory loading call (`trajectory._from_csv()`) inside `Simulation._load_trajectory()`.
+
+- [ ] Resolve preset vs CLI override priority in `SimulationConfig.__post_init__()` (avoid `DEFAULT_SIMULATION` overwriting `-p statolith`).
+- [ ] Complete `SimulationReport.generate_report()` wrapper method to align with the abstract `Report` interface.
+- [ ] Implement inelastic spherical boundary confinement (geometric clamping on `R_tube` and normal velocity suppression) in `RK4Overdamped.solve()`.
+- [ ] Unskip and validate all remaining integration tests in `tests/test_simulation.py` and `tests/test_solver.py`.
 
 ---
 
-## [Unreleased]
+## Unreleased
+
+### Added
+
+### Changed
+
+### Fixed
+
+---
+
+## [v0.2.0] - 2026-11-19
 
 ### Added
 

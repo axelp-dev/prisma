@@ -2,7 +2,6 @@
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Optional, Union
 
 from src.config import Config
 
@@ -37,4 +36,3 @@ class Report(ABC):
     def _show_CLI(self) -> None:
         """Print formatted summary metrics to standard output."""
         pass
-

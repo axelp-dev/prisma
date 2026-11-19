@@ -48,12 +48,6 @@ def sim_config(mock_logger, generated_trajectory_file, tmp_path):
     )
 
 
-def test_simulation_init_no_report(sim_config):
-    """Verify report_path stays None when log_report is False."""
-    sim = Simulation(config=sim_config)
-    assert sim.report_path is None
-
-
 def test_simulation_init_with_report(sim_config):
     """Verify report_path mirrors output_file with .pdf extension when log_report is True."""
     sim_config.log_report = True

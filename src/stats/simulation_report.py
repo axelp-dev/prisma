@@ -50,7 +50,7 @@ class SimulationReport(Report):
         """Instantiate report from saved simulation output CSV."""
         import pandas as pd
 
-        df = pd.read_csv(filepath)
+        df = pd.read_csv(filepath, comment="#")
         result = SimulationResult(
             timestamp=df["timestamp"].to_numpy(),
             positions=df[["x", "y", "z"]].to_numpy(),

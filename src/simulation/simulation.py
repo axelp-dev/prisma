@@ -35,7 +35,6 @@ class Simulation:
         self.system: PhysicalSystem | None = None
         self.result: SimulationResult | None = None
         self.simulation_report: SimulationReport | None = None
-        self.report_path: Path | None = None
         self.trajectory: Trajectory | None = None
 
         if config == None:
@@ -103,7 +102,11 @@ class Simulation:
         if max_reynolds >= 0.1:
             self.config.LOG.warning(f"Re_p exceeded 0.1 (Re_p={max_reynolds:.3e})!")
 
-    def show(self, simulation_report: SimulationReport | None = None):
+    def show(
+        self,
+        simulation_report: SimulationReport | None = None,
+        pdf_path: str | None = None,
+    ):
         """
         Displaying simulation result on CLI and generating PDF
         report if asked.
@@ -113,12 +116,17 @@ class Simulation:
             report = self._init_report()
         else:
             report = simulation_report
-            report._show_CLI()
 
-        self.simulation_report = report
+        if pdf_path is not None:
+            report.output_path = pdf_path
+        else:
+            # Store PDF report next to simulation result
+            report.output_path = convert_to_pdf_path(self.config.output_file)
+
+        report._show_CLI()
 
         # --- Build report ----
-        self.config.LOG.info(f"Generating simulation report into {self.report_path}")
+        self.config.LOG.info(f"Generating simulation report into {report.output_path}")
         report._assemble_pdf()
         self.config.LOG.info("Simulation PDF report successfully generated.")
 
@@ -142,12 +150,6 @@ class Simulation:
         kin = trajectory.compute_kinematics()
         return kin, trajectory
 
-    # TODO :
-    # - Rappatrier la lecture du SimulationResult à partir du CSV
-    #   ici pour ensuite lancer un report desuss
-    # - Directement le faire dans from_CSV()
-    # - Mettre à jour la doc dessus.
-
     def _build_physical_system(self) -> PhysicalSystem:
         """Build physical system from trajectory"""
 
@@ -168,7 +170,7 @@ class Simulation:
 
         # Import simulation report from result
         return SimulationReport.from_csv(
-            filepath=self.config.input_file,
+            filepath=self.config.output_file,
             r_tube=self.config.tube_radius,
             output_path=self.report_path,
         )
@@ -216,7 +218,8 @@ class Simulation:
             f"Succesfully saved simulation into : {self.config.output_file}"
         )
 
-    def _parse_header(self, input_file: str):
+    @staticmethod
+    def _parse_header(input_file: str):
         """Parse SimulationResult header to get metadata"""
         metadata = {}
 
@@ -261,60 +264,49 @@ class Simulation:
 
         return metadata
 
+    @classmethod
+    def from_csv(cls, csv_path: str, log: logging.Logger) -> "Simulation":
+        """Build SimulationResult and SimulationConfig from existing CSV file"""
 
-@classmethod
-def from_csv(cls, csv_path: str, log: logging.Logger) -> Simulation:
-    """Build SimulationResult and SimulationConfig from existing CSV file"""
+        if log == None:
+            raise RuntimeError(
+                "[ERROR] Cannot init SimulationConfig without LOG object"
+            )
 
-    if log == None:
-        raise RuntimeError("[ERROR] Cannot init SimulationConfig without LOG object")
+        # --- Build Config ---
+        metadata = cls._parse_header(csv_path)
+        # print(metadata)
+        config = SimulationConfig(
+            input_file=metadata["input_file"],
+            output_file=csv_path,
+            log_report=metadata["log_report"],
+            preset=metadata["preset"],
+            init_pos=metadata["init_pos"],
+            particle_radius=metadata["particle_radius"],
+            tube_radius=metadata["tube_radius"],
+            rho=metadata["rho"],
+            rho_f=metadata["rho_f"],
+            mu_f=metadata["mu_f"],
+            k=metadata["k"],
+            LOG=log,
+        )
+        # Instanciate simulation
+        sim = cls(config)
 
-    # --- Build Config ---
-    metadata = cls._parse_header(csv_path)
-    # print(metadata)
-    config = SimulationConfig(
-        input_file=metadata["input_file"],
-        output_file=csv_path,
-        log_report=metadata["log_report"],
-        preset=metadata["preset"],
-        init_pos=metadata["init_pos"],
-        particle_radius=metadata["particle_radius"],
-        tube_radius=metadata["tube_radius"],
-        rho=metadata["rho"],
-        rho_f=metadata["rho_f"],
-        mu_f=metadata["mu_f"],
-        k=metadata["k"],
-        LOG=log,
-    )
-    # Instanciate simulation
-    sim = Simulation(config)
+        # --- Build Result ---
+        # Read csv_file content
+        raw_results = pd.read_csv(csv_path, comment="#")
+        timestamp = raw_results["timestamp"].to_numpy(dtype=np.float64)
+        positions = raw_results[["x", "y", "z"]].to_numpy(dtype=np.float64)
+        velocities = raw_results[["vx", "vy", "vz"]].to_numpy(dtype=np.float64)
+        reynolds = raw_results["reynolds"].to_numpy(dtype=np.float64)
+        # Build SimulationResult object
+        result = SimulationResult(
+            timestamp=timestamp,
+            positions=positions,
+            velocities=velocities,
+            reynolds=reynolds,
+        )
 
-    # --- Build Result ---
-    # Read csv_file content
-    raw_results = pd.read_csv(csv_path)
-    timestamp = raw_results["timestamp"].to_numpy(dtype=np.float64)
-    positions = np.array(
-        [
-            raw_results["x"].to_numpy(dtype=np.float64),
-            raw_results["y"].to_numpy(dtype=np.float64),
-            raw_results["z"].to_numpy(dtype=np.float64),
-        ]
-    ).reshape((-1, 3))
-    velocities = np.array(
-        [
-            raw_results["vx"].to_numpy(dtype=np.float64),
-            raw_results["vy"].to_numpy(dtype=np.float64),
-            raw_results["vz"].to_numpy(dtype=np.float64),
-        ]
-    ).reshape((-1, 3))
-    reynolds = raw_results["reynolds"].to_numpy(dtype=np.float64)
-    # Build SimulationResult object
-    result = SimulationResult(
-        timestamp=timestamp,
-        positions=positions,
-        velocities=velocities,
-        reynolds=reynolds,
-    )
-
-    sim.result = result
-    return sim
+        sim.result = result
+        return sim

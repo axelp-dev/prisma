@@ -41,6 +41,7 @@
 
 ### Changed
 
+- Change `Simulation::show()` branching from `prisma simulation show` command.
 - Refactor `Simulation` class using clean constructor and `from_csv` Python dataclass for external construction. Unpack `Simulation::run()` into separate methods. Update associated tests and cli calls.
 - **CLI Unification (`src/cli.py`)**:
   - Replaced legacy commands (`run`, `result`) with a clean two-level hierarchy: `prisma trajectory {generate,show}` and `prisma simulation {launch,show}`.

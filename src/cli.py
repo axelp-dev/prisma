@@ -13,7 +13,7 @@ import sys
 from pathlib import Path
 
 from src.config import SimulationConfig, TrajectoryConfig
-from src.simulation.simulation import Simulation, from_csv
+from src.simulation.simulation import Simulation
 from src.trajectory.generators import PROFILES
 from src.trajectory.Trajectory import Trajectory
 from src.utils import *
@@ -354,9 +354,8 @@ def main():
 
         elif args.simulation_command == "show":
             # --- Generate report from existing simulation ---
-            LOG.info(f"Loading simulation result CSV from: {args.input}")
-            simulation = from_csv(Simulation, args.input, LOG)
-            # TODO : branch Simulation::show() process
+            simulation = Simulation.from_csv(args.input, LOG)
+            simulation.show(pdf_path=args.output)
 
 
 if __name__ == "__main__":

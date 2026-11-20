@@ -64,7 +64,7 @@ def generate_desynchronized_sine(durations_s: float, step_s: float):
 
 
 def generate_constant_speed_ratio(
-    durations_s: float, step_s: float, omega: float = None
+    durations_s: float, step_s: float, omega: float | None = None
 ):
     """
     Generate continuous rotation with fixed desynchronized gear ratio.

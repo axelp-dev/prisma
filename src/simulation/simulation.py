@@ -44,6 +44,7 @@ class Simulation:
         self.config = config
 
         # Init PDF report path if asked
+        self.report_path: Path | None = None
         if self.config.log_report:
             # Store PDF report next to simulation result
             self.report_path = convert_to_pdf_path(self.config.output_file)
@@ -139,14 +140,7 @@ class Simulation:
 
         # --- Loading trajectory ---
         # Creating minimal TrajectoryConfig to open CSV trajectory
-        traj_config = TrajectoryConfig(
-            LOG=self.config.LOG,
-            input_path=Path(self.config.input_file),
-            output_path=None,
-            report_path=None,
-            date=datetime.datetime.now().strftime("%Y-%m-%d"),
-        )
-        trajectory = Trajectory(traj_config)
+        trajectory = Trajectory.from_csv(self.config.input_file, self.config.LOG)
         kin = trajectory.compute_kinematics()
         return kin, trajectory
 
@@ -249,11 +243,11 @@ class Simulation:
                 elif raw_val == "False":
                     val = False
                 elif raw_val.startswith("[") and raw_val.endswith("]"):
-                    try:
-                        parsed_list = ast.literal_eval(raw_val)
-                        val = np.array(parsed_list, dtype=float)
-                    except (ValueError, SyntaxError):
-                        val = raw_val
+                    inner = raw_val[1:-1].strip()
+                    if "," in inner:
+                        val = np.array(ast.literal_eval(raw_val), dtype=float)
+                    else:
+                        val = np.fromstring(inner, sep=" ", dtype=float)
                 else:
                     try:
                         val = float(raw_val)

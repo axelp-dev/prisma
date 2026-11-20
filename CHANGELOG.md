@@ -19,10 +19,13 @@
 
 ### Changed
 
+- Update `Simulation` & `Trajectory` tests files to new architecture.
+- Refactor `Trajectory` class to map it to the `Simulation` one.
 - Move `PRESETS` and `PROFILES` into `src/config.py` file for a more comprehensive architecture.
 
 ### Fixed
 
+- Fix bugs in `Simulation._parse_header()` & `SimulationConfig` rendering method.
 - Use real `PRESETS` overrides & default values for `Simulation` instanciation.
 
 ---

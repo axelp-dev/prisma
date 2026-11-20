@@ -189,7 +189,9 @@ class SimulationConfig(Config):
     preset: str = "statolith"
 
     def __str__(self) -> str:
-        x0 = self.init_pos if self.init_pos is not None else [0.0, 0.0, 0.0]
+        x0 = np.asarray(
+            self.init_pos if self.init_pos is not None else [0.0, 0.0, 0.0], dtype=float
+        )
         x0_fmt = f"[{x0[0]:.2e}, {x0[1]:.2e}, {x0[2]:.2e}] m"
         sections = [
             (

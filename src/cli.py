@@ -272,21 +272,8 @@ def main() -> None:
             traj.generate()
 
         elif args.trajectory_command == "show":
-            output_filepath = (
-                convert_to_pdf_path(Path(args.input))
-                if args.output is None
-                else Path(args.output)
-            )
-            config = TrajectoryConfig(
-                LOG=LOG,
-                input_path=args.input,
-                output_path=None,
-                report_path=output_filepath,
-                date=get_date(),
-            )
-            print(config)
-            traj = Trajectory(config)
-            traj.show()
+            traj = Trajectory.from_csv(args.input, LOG)
+            traj.show(pdf_path=args.output)
 
     elif args.command == "simulation":
         if args.simulation_command == "launch":
@@ -308,7 +295,7 @@ def main() -> None:
                 mu_f=args.mu_f if args.mu_f is not None else base["mu_f"],
                 k=args.k if args.k is not None else base["k"],
             )
-            print(config)
+
             simulation = Simulation(config)
             simulation.run()
 

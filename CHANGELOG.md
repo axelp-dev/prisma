@@ -4,7 +4,7 @@
 
 ## Roadmap & Active Work
 
-- [ ] Resolve preset vs CLI override priority in `SimulationConfig.__post_init__()` (avoid `DEFAULT_SIMULATION` overwriting `-p statolith`).
+- [x] Resolve preset vs CLI override priority in `SimulationConfig.__post_init__()` (avoid `DEFAULT_SIMULATION` overwriting `-p statolith`).
 - [ ] Complete `SimulationReport.generate_report()` wrapper method to align with the abstract `Report` interface.
 - [ ] Implement inelastic spherical boundary confinement (geometric clamping on `R_tube` and normal velocity suppression) in `RK4Overdamped.solve()`.
 - [ ] Unskip and validate all remaining integration tests in `tests/test_simulation.py` and `tests/test_solver.py`.
@@ -15,9 +15,15 @@
 
 ### Added
 
+- Add rendering method for `Config` objects and display them at instanciation in `cli.py` or `Simulation::from_csv()` methods.
+
 ### Changed
 
+- Move `PRESETS` and `PROFILES` into `src/config.py` file for a more comprehensive architecture.
+
 ### Fixed
+
+- Use real `PRESETS` overrides & default values for `Simulation` instanciation.
 
 ---
 

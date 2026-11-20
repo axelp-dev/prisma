@@ -5,25 +5,25 @@ PRISMA Trajectory module.
 - export/import trajectory
 """
 
-import pandas as pd
-import numpy as np
 from pathlib import Path
 
-from src.utils import get_metadata
+import numpy as np
+import pandas as pd
+
 import src.core.conventions as conv
+from src.config import PROFILES, TrajectoryConfig
 from src.core.kinematics import CanonicalTwoAxis
 from src.core.models import KinematicProfile
+from src.stats.trajectory_report import TrajectoryReport
 from src.trajectory.generators import (
-    PROFILES,
-    generate_random_walk,
-    generate_clinostat_1d,
-    generate_desynchronized_sine,
     generate_centrifuge_sweep,
+    generate_clinostat_1d,
     generate_constant_speed_ratio,
+    generate_desynchronized_sine,
+    generate_random_walk,
     generate_static_1g,
 )
-from src.config import TrajectoryConfig
-from src.stats.trajectory_report import TrajectoryReport
+from src.utils import get_metadata
 
 
 class Trajectory:

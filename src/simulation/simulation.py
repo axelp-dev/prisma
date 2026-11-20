@@ -292,6 +292,7 @@ class Simulation:
         )
         # Instanciate simulation
         sim = cls(config)
+        print(config)
 
         # --- Build Result ---
         # Read csv_file content

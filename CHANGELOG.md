@@ -4,10 +4,10 @@
 
 ## Roadmap & Active Work
 
-- [x] Resolve preset vs CLI override priority in `SimulationConfig.__post_init__()` (avoid `DEFAULT_SIMULATION` overwriting `-p statolith`).
-- [ ] Complete `SimulationReport.generate_report()` wrapper method to align with the abstract `Report` interface.
-- [ ] Implement inelastic spherical boundary confinement (geometric clamping on `R_tube` and normal velocity suppression) in `RK4Overdamped.solve()`.
-- [ ] Unskip and validate all remaining integration tests in `tests/test_simulation.py` and `tests/test_solver.py`.
+- [ ] Exécuter une comparaison contrôlée *toutes choses égales par ailleurs* sur le preset `statolith` ($R = 1.5\text{ µm}$, $\mu_f = 0.1\text{ Pa}\cdot\text{s}$, $R_{\text{tube}} = 20\text{ µm}$) :
+  - [ ] **Condition témoin (cytosquelette intact)** : `-p statolith` ($k = 10^{-4}\text{ N/m}$) sur les profils `constant_speed_ratio` et `random_walk`.
+  - [ ] **Condition dépolymérisée (sans actine)** : `-p statolith -k 0.0` sur les mêmes trajectoires afin d'isoler strictement l'effet du rappel élastique sur le confinement et l'absence de contact membranaire.
+- [ ] Intégrer les métriques comparatives (`Net Drift`, `Gyration Radius`, `Boundary Contact %`) dans le rapport final (`REPORT.md`).
 
 ---
 

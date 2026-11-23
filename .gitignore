@@ -20,3 +20,5 @@ __pycache__/
 data/*
 !data/trajectories/
 !data/trajectories/**
+!data/results/
+!data/results/**

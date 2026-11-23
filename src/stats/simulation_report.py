@@ -94,7 +94,7 @@ class SimulationReport(Report):
                 tau_k_cutoff_hz = 1.0 / (2.0 * np.pi * tau_k)
 
         scale = 1e3 if self.r_tube >= 1e-3 else 1e6
-        unit_str = "mm" if scale == 1e3 else r"\mu\mathrm{m}"
+        unit_str = "mm" if scale == 1e3 else r"µm"
 
         self.metrics = {
             "timestamp": t,

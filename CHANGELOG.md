@@ -20,6 +20,7 @@
 
 ### Changed
 
+- Use private init methods to add metadata on simulation PDF reports using `Simulation::_build_physical_system()` in `Simulation::from_csv()` to use `SimulationReport` default constructor.
 - Update `Simulation` & `Trajectory` tests files to new architecture.
 - Refactor `Trajectory` class to map it to the `Simulation` one.
 - Move `PRESETS` and `PROFILES` into `src/config.py` file for a more comprehensive architecture.

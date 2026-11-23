@@ -86,14 +86,14 @@ def render_particle_3d_confinement(
     ax.plot_wireframe(xs, ys, zs, color="#718096", alpha=0.35, linewidth=0.6)
 
     # 2. Connecting path line + high-contrast chronological scatter (plasma avoids pale middle tones)
-    ax.plot(
-        pos_plot[:, 0],
-        pos_plot[:, 1],
-        pos_plot[:, 2],
-        color="#4A5568",
-        linewidth=0.9,
-        alpha=0.55,
-    )
+    # ax.plot(
+    #    pos_plot[:, 0],
+    #    pos_plot[:, 1],
+    #    pos_plot[:, 2],
+    #    color="#4A5568",
+    #    linewidth=0.9,
+    #    alpha=0.55,
+    # )
 
     sc = ax.scatter(
         pos_plot[:, 0],

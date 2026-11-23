@@ -124,6 +124,10 @@ class Simulation:
             # Store PDF report next to simulation result
             report.output_path = convert_to_pdf_path(self.config.output_file)
 
+        # Init config
+        self.system = self._build_physical_system()
+        self.kin, self.trajectory = self._load_trajectory()
+
         report._show_CLI()
 
         # --- Build report ----
@@ -162,9 +166,17 @@ class Simulation:
         """Init SimulationReport object from
         self.config container"""
 
-        # Import simulation report from result
-        return SimulationReport.from_csv(
-            filepath=self.config.output_file,
+        if self.result is None:
+            raise RuntimeError("No SimulationResult available to build report.")
+
+        if self.system is None:
+            self.system = self._build_physical_system()
+
+        return SimulationReport(
+            result=self.result,
+            config=self.config,
+            kin=self.kin,
+            system=self.system,
             r_tube=self.config.tube_radius,
             output_path=self.report_path,
         )
@@ -304,4 +316,10 @@ class Simulation:
         )
 
         sim.result = result
+        sim.system = sim._build_physical_system()
+
+        # Reload input motor kinematics if the source trajectory file is still accessible
+        if sim.config.input_file and Path(sim.config.input_file).exists():
+            sim.kin, sim.trajectory = sim._load_trajectory()
+
         return sim

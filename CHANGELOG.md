@@ -15,6 +15,7 @@
 
 ### Added
 
+- Write several scripts for trajectories, simulations & plots automatic generation (all in `dev/`).
 - Add rendering method for `Config` objects and display them at instanciation in `cli.py` or `Simulation::from_csv()` methods.
 
 ### Changed
@@ -25,6 +26,7 @@
 
 ### Fixed
 
+- Change plots colors in `plotting.py` & use `_decimate` function for a better plot generation.
 - Fix bugs in `Simulation._parse_header()` & `SimulationConfig` rendering method.
 - Use real `PRESETS` overrides & default values for `Simulation` instanciation.
 

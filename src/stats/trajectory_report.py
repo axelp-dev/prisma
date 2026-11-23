@@ -1,12 +1,13 @@
 """PRISMA Report Generation Module for Trajectories and Simulation Dynamics."""
 
 from pathlib import Path
-from typing import Optional, Union
-import matplotlib.pyplot as plt
-from matplotlib.backends.backend_pdf import PdfPages
-import numpy as np
 
-from src.stats.report import Report
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.backends.backend_pdf import PdfPages
+
+from src.config import TrajectoryConfig
+from src.core.models import KinematicProfile
 from src.stats.metrics import (
     compute_dispersion_tensor,
     compute_extreme_kinematics,
@@ -17,21 +18,20 @@ from src.stats.metrics import (
 )
 from src.stats.plotting import (
     THEME,
+    _decimate,
     apply_axes_styling,
     render_mollweide_heatmap,
     render_motor_kinematics,
     render_unit_sphere_trajectory,
 )
-
-from src.config import TrajectoryConfig
-from src.core.models import KinematicProfile
+from src.stats.report import Report
 
 
 class TrajectoryReport(Report):
     """Generates CLI diagnostics, Matplotlib plots, and 3-page PDF reports for RPM trajectories."""
 
     def __init__(self, config: TrajectoryConfig, kin: KinematicProfile):
-        
+
         # Trajectory components
         self.config = config
         self.kin = kin
@@ -39,25 +39,29 @@ class TrajectoryReport(Report):
         # Containers for PDFReport
         self.metrics: dict = {}
         self.figures: dict = {}
-                
+
     # --------- Generate report --------------
-    
-    def generate_report(self): 
+
+    def generate_report(self):
         """
-        Public method for PDFReport generation. 
+        Public method for PDFReport generation.
         """
-        
-        self.config.LOG.info(f"Starting PDF generation into {self.config.report_path}...")
+
+        self.config.LOG.info(
+            f"Starting PDF generation into {self.config.report_path}..."
+        )
 
         # Generate report
         self._compute_metrics()
         self._generate_plots()
         self._assemble_pdf()
 
-        # Display cli 
+        # Display cli
         self._show_CLI()
 
-        self.config.LOG.info(f"Successfully generated PDF report into {self.config.report_path}")
+        self.config.LOG.info(
+            f"Successfully generated PDF report into {self.config.report_path}"
+        )
 
     def _compute_metrics(self) -> dict:
         """Compute complete kinematic and statistical trajectory metrics."""
@@ -75,7 +79,6 @@ class TrajectoryReport(Report):
         final_residual_norm = float(np.linalg.norm(final_mean_g))
 
         self.metrics = {
-            
             # Kinematic time series
             "timestamp": self.kin.timestamp,
             "theta1": self.kin.theta1,
@@ -90,14 +93,12 @@ class TrajectoryReport(Report):
             "omega_norm_series": omega_stats["omega_norm_series"],
             "lon": lon,
             "lat": lat,
-            
             # Metadata
             "description": self.config.desc,
             "generation_date": self.config.date,
             "duration_s": self.config.duration_s,
             "step_s": self.config.step_s,
             "points_count": len(self.kin.timestamp),
-            
             # Final scalars
             "final_mean_g": final_mean_g,
             "final_residual_norm": final_residual_norm,
@@ -170,16 +171,11 @@ class TrajectoryReport(Report):
         render_unit_sphere_trajectory(m["g"], m["timestamp"], ax_3d)
 
         # Subplot 3: Cross-sectional horizontal scatter (gx vs gy)
+        g_p, t_p = _decimate(m["g"], m["timestamp"], max_points=3000, randomized=True)
         ax_trans = fig1.add_subplot(gs1[1, 1])
         apply_axes_styling(ax_trans)
         ax_trans.scatter(
-            m["g"][:, 0],
-            m["g"][:, 1],
-            c=m["timestamp"],
-            cmap="viridis",
-            s=4,
-            alpha=0.6,
-            rasterized=True,
+            g_p[:, 0], g_p[:, 1], c=t_p, cmap="plasma", s=6, alpha=0.85, rasterized=True
         )
         circle = plt.Circle(
             (0, 0),
@@ -240,7 +236,7 @@ class TrajectoryReport(Report):
             (m["theta1"] + np.pi) % (2 * np.pi) - np.pi,
             bins=bins_angle,
             density=True,
-            alpha=0.6,
+            alpha=0.55,
             color=THEME["secondary"],
             label=r"$\theta_1$ (Azimuth)",
         )
@@ -248,7 +244,8 @@ class TrajectoryReport(Report):
             (m["theta2"] + np.pi) % (2 * np.pi) - np.pi,
             bins=bins_angle,
             density=True,
-            alpha=0.6,
+            histtype="step",
+            linewidth=1.8,
             color=THEME["accent"],
             label=r"$\theta_2$ (Tilt)",
         )
@@ -324,7 +321,7 @@ class TrajectoryReport(Report):
             raise ValueError(
                 "No output path specified. Provide it at instantiation or call assemble_pdf(path)."
             )
-        
+
         destination.parent.mkdir(parents=True, exist_ok=True)
 
         if not self.figures:
@@ -352,22 +349,12 @@ class TrajectoryReport(Report):
         print(f"Description        : {m['description']}")
         print(f"Generation Date    : {m['generation_date']}")
         print(f"Duration           : {m['duration_s']:.2f} s")
-        print(
-            f"Sampling Step dt   : {m['step_s']:.4f} s ({m['points_count']} samples)"
-        )
+        print(f"Sampling Step dt   : {m['step_s']:.4f} s ({m['points_count']} samples)")
         print("-" * 55)
-        print(
-            f"Max |omega1|       : {m['extreme_motion']['max_omega1']:.3f} rad/s"
-        )
-        print(
-            f"Max |omega2|       : {m['extreme_motion']['max_omega2']:.3f} rad/s"
-        )
-        print(
-            f"Max |alpha1|       : {m['extreme_motion']['max_alpha1']:.3f} rad/s²"
-        )
-        print(
-            f"Max |alpha2|       : {m['extreme_motion']['max_alpha2']:.3f} rad/s²"
-        )
+        print(f"Max |omega1|       : {m['extreme_motion']['max_omega1']:.3f} rad/s")
+        print(f"Max |omega2|       : {m['extreme_motion']['max_omega2']:.3f} rad/s")
+        print(f"Max |alpha1|       : {m['extreme_motion']['max_alpha1']:.3f} rad/s²")
+        print(f"Max |alpha2|       : {m['extreme_motion']['max_alpha2']:.3f} rad/s²")
         print(f"Resulting RMS w    : {m['omega_rms']:.3f} rad/s")
         print("-" * 55)
         print(
@@ -380,3 +367,4 @@ class TrajectoryReport(Report):
             f"Isotropy Index     : {m['isotropy_index']:.4f} (Ideal isotropic = 1.000)"
         )
         print("=" * 55 + "\n")
+

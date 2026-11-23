@@ -27,6 +27,7 @@
 
 ### Fixed
 
+- Fix `solver.py` boundary error.
 - Change plots colors in `plotting.py` & use `_decimate` function for a better plot generation.
 - Fix bugs in `Simulation._parse_header()` & `SimulationConfig` rendering method.
 - Use real `PRESETS` overrides & default values for `Simulation` instanciation.

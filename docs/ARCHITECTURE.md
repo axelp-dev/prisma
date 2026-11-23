@@ -175,8 +175,6 @@ generators.py         _from_csv() (parses metadata & angles)
 
 ### 4.2 Dynnamic Simulation Workflow (`Simulation`)
 
-`### 4.2 Dynamic Simulation Workflow (`Simulation`)
-
 ```text
 CLI: prisma simulation launch / show
                │

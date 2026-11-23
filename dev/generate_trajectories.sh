@@ -2,14 +2,14 @@
 set -e
 
 DATA_DIR="data/trajectories"
-DURATION=3600
+DURATION=14400
 STEP=0.01
 
 mkdir -p "$DATA_DIR"
 
 # Clean old files
-echo "[INFO] Cleaning $DATA_DIR..."
-rm -f "$DATA_DIR"/*.csv "$DATA_DIR"/*.pdf
+# echo "[INFO] Cleaning $DATA_DIR..."
+# rm -f "$DATA_DIR"/*.csv "$DATA_DIR"/*.pdf
 
 # Output duration name
 OUTPUT_DURATION=$(awk "BEGIN {printf \"%.2g\", $DURATION / 3600}")
